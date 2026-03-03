@@ -1,19 +1,19 @@
-import sqlite3 from 'sqlite3';
+import sqlite3 from "sqlite3";
 
-const db = new sqlite3.Database('ridelog.sqlite');
+const db = new sqlite3.Database("ridelog.sqlite");
 
 export const initDB = () => {
-    db.serialize(() => { 
-        // Users
-        db.run(`CREATE TABLE IF NOT EXISTS users (
+  db.serialize(() => {
+    // Users
+    db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT UNIQUE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // Rides
-        db.run(`CREATE TABLE IF NOT EXISTS rides (
+    // Rides
+    db.run(`CREATE TABLE IF NOT EXISTS rides (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             driver_user_id INTEGER,
             start_name TEXT,
@@ -27,17 +27,18 @@ export const initDB = () => {
             FOREIGN KEY(driver_user_id) REFERENCES users(id)
         )`);
 
-        // Ride Passengers
-        db.run(`CREATE TABLE IF NOT EXISTS ride_passengers (
-            ride_id INTEGER,
-            user_id INTEGER,
-            status TEXT CHECK(status IN ('joined', 'cancelled')), [cite: 309]
+    // Ride Passengers mit künstlichem PK
+    db.run(`CREATE TABLE IF NOT EXISTS ride_passengers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ride_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            status TEXT CHECK(status IN ('joined', 'cancelled')) DEFAULT 'joined',
             joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (ride_id, user_id),
             FOREIGN KEY(ride_id) REFERENCES rides(id),
-            FOREIGN KEY(user_id) REFERENCES users(id)
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            UNIQUE(ride_id, user_id) -- Verhindert doppeltes Beitreten
         )`);
-    });
+  });
 };
 
 export default db;

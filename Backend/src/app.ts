@@ -35,19 +35,37 @@ app.post('/rides', (req: Request, res: Response) => {
 app.post('/rides/:id/join', (req: Request, res: Response) => {
     const rideId = req.params.id;
     const { user_id } = req.body;
-    db.run(`INSERT INTO ride_passengers (ride_id, user_id, status) VALUES (?, ?, 'joined')`, [rideId, user_id], (err) => {
-        if (err) return res.status(500).json({ error: "Schon beigetreten oder Fehler." });
-        res.json({ message: "Joined successfully" });
+    
+    const sql = `INSERT INTO ride_passengers (ride_id, user_id, status) VALUES (?, ?, 'joined')`;
+    
+    db.run(sql, [rideId, user_id], function(err) {
+        if (err) {
+            return res.status(500).json({ error: "Beitritt fehlgeschlagen oder bereits angemeldet." });
+        }
+        // Rückgabe der passenger_id (this.lastID) für das Flutter-Model
+        res.status(201).json({ 
+            passenger_id: this.lastID, 
+            ride_id: parseInt(rideId),
+            user_id: user_id,
+            status: 'joined'
+        });
     });
 });
-
 // 4. Fahrt absagen 
 app.post('/rides/:id/cancel', (req: Request, res: Response) => {
     const rideId = req.params.id;
     const { user_id } = req.body;
-    db.run(`UPDATE ride_passengers SET status = 'cancelled' WHERE ride_id = ? AND user_id = ?`, [rideId, user_id], (err) => {
+    
+    const sql = `UPDATE ride_passengers SET status = 'cancelled' WHERE ride_id = ? AND user_id = ?`;
+    
+    db.run(sql, [rideId, user_id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Cancelled successfully" });
+        
+        if (this.changes === 0) {
+            return res.status(404).json({ error: "Keine aktive Anmeldung gefunden." });
+        }
+        
+        res.json({ message: "Cancelled successfully", status: 'cancelled' });
     });
 });
 

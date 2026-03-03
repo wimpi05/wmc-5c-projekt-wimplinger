@@ -50,3 +50,55 @@ Frameworks/
 temp/
 screenshots/*.png
 !screenshots/final_mockup.png
+
+# ==========================================
+# Flutter Plattform-übergreifende ignores
+# ==========================================
+
+# Android-spezifisch
+.gradle/
+local.properties
+*.keystore
+*.jks
+*.apk
+*.aab
+
+# iOS- / macOS-spezifisch (Xcode & CocoaPods)
+ios/Pods/
+macos/Pods/
+.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+macos/Flutter/ephemeral/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+DerivedData/
+*.moved-aside
+*.xcuserstate
+
+# Linux-spezifisch
+linux/flutter/ephemeral/
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/generated_plugins.cmake
+
+# Windows-spezifisch
+windows/flutter/ephemeral/
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cmake
+cmake-build-*/
+visual_studio_output/
+
+# Web-spezifisch
+.web/
+
+# Tooling
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
