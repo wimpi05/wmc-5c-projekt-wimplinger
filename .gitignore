@@ -1,3 +1,6 @@
+# ==========================================
+# RideLog Projekt-weite Ignores
+# ==========================================
 
 .DS_Store
 *.swp
@@ -6,99 +9,74 @@
 .vscode/
 *.iml
 .history/
-
-
-node_modules/
-
-
-dist/
-out/
-
-
-*.sqlite
-*.sqlite-journal
-*.db
-*.db-journal
-
-logs/
 *.log
-npm-debug.log*
-.env
-
-
-build/
-.dart_tool/
-.packages
-.pub-cache/
-.pub/
-
-.gradle/
-local.properties
-*.keystore
-*.jks
-*.apk
-*.aab
-
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
-ios/Pods/
-Frameworks/
-
-.web/
-
-
-temp/
-screenshots/*.png
-!screenshots/final_mockup.png
 
 # ==========================================
-# Flutter Plattform-übergreifende ignores
+# Backend (Node.js / TypeScript)
 # ==========================================
+backend/node_modules/
+backend/dist/
+backend/out/
+backend/*.sqlite
+backend/*.sqlite-journal
+backend/*.db
+backend/*.db-journal
+backend/.env
+
+# ==========================================
+# Frontend (Flutter)
+# ==========================================
+
+# Flutter Build-Artefakte
+frontend/build/
+frontend/.dart_tool/
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
 
 # Android-spezifisch
-.gradle/
-local.properties
-*.keystore
-*.jks
-*.apk
-*.aab
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/*.keystore
+frontend/android/*.jks
+frontend/android/*.apk
+frontend/android/*.aab
+frontend/android/app/src/main/res/drawable-*/ic_launcher.png
 
-# iOS- / macOS-spezifisch (Xcode & CocoaPods)
-ios/Pods/
-macos/Pods/
-.symlinks/
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
-macos/Flutter/ephemeral/
-*.pbxuser
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-xcuserdata/
-DerivedData/
-*.moved-aside
+# iOS- / macOS-spezifisch
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+frontend/ios/Flutter/ephemeral/
+frontend/ios/Pods/
+frontend/macos/Flutter/ephemeral/
+frontend/macos/Flutter/GeneratedPluginRegistrant.swift
+frontend/macos/Runner/GeneratedPluginRegistrant.h
+frontend/macos/Runner/GeneratedPluginRegistrant.m
+frontend/.symlinks/
+frontend/DerivedData/
 *.xcuserstate
 
 # Linux-spezifisch
-linux/flutter/ephemeral/
-linux/flutter/generated_plugin_registrant.cc
-linux/flutter/generated_plugin_registrant.h
-linux/flutter/generated_plugins.cmake
+frontend/linux/flutter/ephemeral/
+frontend/linux/flutter/generated_plugin_registrant.cc
+frontend/linux/flutter/generated_plugin_registrant.h
+frontend/linux/flutter/generated_plugins.cmake
 
 # Windows-spezifisch
-windows/flutter/ephemeral/
-windows/flutter/generated_plugin_registrant.cc
-windows/flutter/generated_plugin_registrant.h
-windows/flutter/generated_plugins.cmake
-cmake-build-*/
-visual_studio_output/
+frontend/windows/flutter/ephemeral/
+frontend/windows/flutter/generated_plugin_registrant.cc
+frontend/windows/flutter/generated_plugin_registrant.h
+frontend/windows/flutter/generated_plugins.cmake
+frontend/cmake-build-*/
 
 # Web-spezifisch
-.web/
+frontend/.web/
 
-# Tooling
-.dart_tool/
-.packages
-.pub-cache/
-.pub/
-build/
+# Screenshots (außer das finale Mockup laut deinem Wunsch)
+frontend/screenshots/*.png
+!frontend/screenshots/final_mockup.png
+
+# Zusätzliche Fixes für verbleibende Warnungen
+frontend/.metadata
+frontend/ios/Runner/GeneratedPluginRegistrant.*
+frontend/macos/Runner/GeneratedPluginRegistrant.*
