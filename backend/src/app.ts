@@ -14,7 +14,21 @@ initDB();
 // --- RIDE ENDPOINTS ---
 // 1. Alle Fahrten abrufen
 app.get('/rides', (req: Request, res: Response) => {
-    db.all('SELECT * FROM rides', [], (err, rows) => { 
+    const sql = `
+        SELECT 
+            r.*, 
+            u.name as driver_username,
+            -- Hier zählen wir nur die Passagiere, die wirklich 'joined' sind
+            (SELECT COUNT(*) 
+             FROM ride_passengers rp 
+             WHERE rp.ride_id = r.id 
+             AND rp.status = 'joined') as seats_occupied
+        FROM rides r
+        LEFT JOIN users u ON r.driver_user_id = u.id
+        ORDER BY r.depart_time ASC
+    `;
+    
+    db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });

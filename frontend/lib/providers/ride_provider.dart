@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 
 class RideProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
-  
+
   List<Ride> _rides = [];
   bool _isLoading = false;
   String? _error;
@@ -21,7 +21,9 @@ class RideProvider with ChangeNotifier {
   List<Ride> get upcomingRides {
     // Fahrten, die nicht heute sind und in der Zukunft liegen
     final now = DateTime.now();
-    return _rides.where((ride) => !ride.isToday && ride.departTime.isAfter(now)).toList();
+    return _rides
+        .where((ride) => !ride.isToday && ride.departTime.isAfter(now))
+        .toList();
   }
 
   // Alle Fahrten vom Server laden
@@ -45,20 +47,19 @@ class RideProvider with ChangeNotifier {
   // Neue Fahrt erstellen (Konzept Punkt 5.1)
   Future<bool> addRide(Ride ride) async {
     _isLoading = true;
+    _error = null;
     notifyListeners();
 
     try {
-      final newRide = await _apiService.createRide(ride);
-      _rides.add(newRide);
-      _rides.sort((a, b) => a.departTime.compareTo(b.departTime));
-      notifyListeners();
+      await _apiService.createRide(ride);
+      await fetchRides(); // Holt die saubere Liste inkl. driver_username vom Server
       return true;
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
       return false;
     } finally {
       _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -66,8 +67,7 @@ class RideProvider with ChangeNotifier {
   Future<bool> joinRide(int rideId, int userId) async {
     try {
       await _apiService.joinRide(rideId: rideId, userId: userId);
-      // Nach dem Beitritt laden wir die Fahrten neu, 
-      // um die aktualisierte 'seatsOccupied' Zahl vom Server zu erhalten
+
       await fetchRides();
       return true;
     } catch (e) {
