@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'create_ride_screen.dart';
+import 'ride_history_screen.dart';
+import 'settings_screen.dart';
 import '../providers/ride_provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/ride_card.dart';
+
+const double _kUnifiedHeaderHeight = 108;
+const double _kUnifiedHeaderTitleSize = 28;
+const double _kUnifiedHeaderSubtitleSize = 13;
+const double _kUnifiedHeaderTitleSubtitleGap = 4;
+const double _kUnifiedHeaderLeftInset = 24;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,10 +39,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final bool isHome = _selectedNavIndex == 0;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      body: isHome ? _buildHomeBody() : SafeArea(child: _buildSectionPage()),
+      body: isHome ? _buildHomeBody() : _buildSectionPage(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreateRide(context),
         backgroundColor: const Color(0xFFA5D6A7),
@@ -69,28 +79,37 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _buildHomeBody() {
     final double topInset = MediaQuery.of(context).padding.top;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Column(
       children: [
         Container(
           width: double.infinity,
-          padding: EdgeInsets.fromLTRB(22, topInset + 16, 22, 20),
-          decoration: const BoxDecoration(
-            color: Color(0xFF3F51B5),
+          height: topInset + _kUnifiedHeaderHeight,
+          padding: EdgeInsets.only(top: topInset),
+          decoration: BoxDecoration(
+            color: primary,
           ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'RideLog',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 38, color: Colors.white, height: 1),
+          child: const Padding(
+            padding: EdgeInsets.fromLTRB(_kUnifiedHeaderLeftInset, 0, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'RideLog',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: _kUnifiedHeaderTitleSize, color: Colors.white),
+                  ),
+                  SizedBox(height: _kUnifiedHeaderTitleSubtitleGap),
+                  Text(
+                    'Dein Dashboard fuer Fahrgemeinschaften',
+                    style: TextStyle(fontSize: _kUnifiedHeaderSubtitleSize, color: Colors.white70),
+                  ),
+                ],
               ),
-              SizedBox(height: 8),
-              Text(
-                'Dein Dashboard fuer Fahrgemeinschaften',
-                style: TextStyle(fontSize: 16, color: Colors.white70),
-              ),
-            ],
+            ),
           ),
         ),
         Container(
@@ -108,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               dividerColor: Colors.transparent,
               indicator: BoxDecoration(
                 borderRadius: BorderRadius.circular(25),
-                color: const Color(0xFF3F51B5),
+                color: primary,
               ),
               labelColor: Colors.white,
               unselectedLabelColor: const Color(0xFF5C6379),
@@ -139,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     required int index,
   }) {
     final bool isActive = _selectedNavIndex == index;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
@@ -153,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 21, color: isActive ? const Color(0xFF3F51B5) : const Color(0xFF777E91)),
+              Icon(icon, size: 21, color: isActive ? primary : const Color(0xFF777E91)),
               const SizedBox(height: 1),
               SizedBox(
                 width: 68,
@@ -167,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   style: TextStyle(
                     fontSize: 10,
                     height: 1.0,
-                    color: isActive ? const Color(0xFF3F51B5) : const Color(0xFF777E91),
+                    color: isActive ? primary : const Color(0xFF777E91),
                   ),
                 ),
               ),
@@ -179,20 +199,33 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildSectionPage() {
-    const style = TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
     if (_selectedNavIndex == 1) {
-      return const Center(child: Text('Der Verlaufs-Screen ist als naechstes dran.', style: style));
+      return const RideHistoryScreen();
     }
+    const style = TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
     if (_selectedNavIndex == 3) {
-      return const Center(child: Text('Der Statistik-Screen ist als naechstes dran.', style: style));
+      return const SafeArea(child: Center(child: Text('Der Statistik-Screen ist als naechstes dran.', style: style)));
     }
-    return const Center(child: Text('Der Einstellungen-Screen ist als naechstes dran.', style: style));
+    return const SettingsScreen();
   }
 
-  void _openCreateRide(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Der Create-Ride-Flow ist als naechstes dran.')),
+  Future<void> _openCreateRide(BuildContext context) async {
+    final result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute(builder: (_) => const CreateRideScreen()),
     );
+
+    if (!context.mounted) return;
+    if (result == true) {
+      setState(() => _selectedNavIndex = 0);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Neue Fahrt wurde zur Liste hinzugefuegt.')),
+      );
+      return;
+    }
+
+    if (result == 'open_settings') {
+      setState(() => _selectedNavIndex = 4);
+    }
   }
 }
 

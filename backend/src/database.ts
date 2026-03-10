@@ -4,6 +4,8 @@ const db = new sqlite3.Database("ridelog.sqlite");
 
 export const initDB = () => {
   db.serialize(() => {
+    db.run('PRAGMA foreign_keys = ON');
+
     // 1. Users
     db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +41,51 @@ export const initDB = () => {
             UNIQUE(ride_id, user_id)
         )`);
 
-    // 4. Seeding
+        // 4. Groups
+        db.run(`CREATE TABLE IF NOT EXISTS groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            code TEXT UNIQUE NOT NULL,
+            owner_user_id INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(owner_user_id) REFERENCES users(id)
+          )`);
+
+        // 5. Group Members
+        db.run(`CREATE TABLE IF NOT EXISTS group_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            role TEXT CHECK(role IN ('admin', 'member')) DEFAULT 'member',
+            joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE,
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            UNIQUE(group_id, user_id)
+          )`);
+
+    db.get("SELECT COUNT(*) as count FROM groups", (groupErr, groupRow: any) => {
+      if (!groupErr && groupRow.count === 0) {
+        const groupSql = `INSERT INTO groups (name, code, owner_user_id) VALUES (?, ?, ?)`;
+        const groupMemberSql = `INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)`;
+
+        db.run(groupSql, ['Linz High School Carpool', 'LHS2024', 1], function (err) {
+          if (err) return;
+          const groupId1 = this.lastID;
+          db.run(groupMemberSql, [groupId1, 1, 'admin']);
+          db.run(groupMemberSql, [groupId1, 2, 'member']);
+          db.run(groupMemberSql, [groupId1, 3, 'member']);
+        });
+
+        db.run(groupSql, ['Downtown Office Commuters', 'DOC456', 2], function (err) {
+          if (err) return;
+          const groupId2 = this.lastID;
+          db.run(groupMemberSql, [groupId2, 2, 'admin']);
+          db.run(groupMemberSql, [groupId2, 1, 'member']);
+        });
+      }
+    });
+
+        // 6. Seeding
     db.get("SELECT COUNT(*) as count FROM users", (err, row: any) => {
       if (!err && row.count === 0) {
         console.log("Starte sauberes Seeding ohne Redundanz...");
@@ -47,6 +93,8 @@ export const initDB = () => {
         const userSql = `INSERT INTO users (name, email) VALUES (?, ?)`;
         const ridesSql = `INSERT INTO rides (driver_user_id, start_name, end_name, depart_time, seats_total, distance_km, note, price_per_seat) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
         const passSql = `INSERT INTO ride_passengers (ride_id, user_id, status) VALUES (?, ?, 'joined')`;
+          const groupSql = `INSERT INTO groups (name, code, owner_user_id) VALUES (?, ?, ?)`;
+          const groupMemberSql = `INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, ?)`;
 
         db.run(userSql, ['Felix Wimplinger', 'felix@ridelog.com'], () => {
           db.run(userSql, ['Max Mustermann', 'max@ridelog.com'], () => {
@@ -68,8 +116,21 @@ export const initDB = () => {
                   db.run(passSql, [2, 3]); // Simon fährt bei Max (Fahrt 2) mit
                   db.run(passSql, [2, 4]); // Thorsten fährt bei Max (Fahrt 2) mit -> seats_occupied wird 3 (Voll!)
                   db.run(passSql, [4, 1]); // Felix fährt bei Thorsten (Fahrt 4) mit
-                  
-                  console.log("Vollständiges Seeding beendet.");
+
+                  db.run(groupSql, ['Linz High School Carpool', 'LHS2024', 1], function () {
+                    const groupId1 = this.lastID;
+                    db.run(groupMemberSql, [groupId1, 1, 'admin']);
+                    db.run(groupMemberSql, [groupId1, 2, 'member']);
+                    db.run(groupMemberSql, [groupId1, 3, 'member']);
+
+                    db.run(groupSql, ['Downtown Office Commuters', 'DOC456', 2], function () {
+                      const groupId2 = this.lastID;
+                      db.run(groupMemberSql, [groupId2, 2, 'admin']);
+                      db.run(groupMemberSql, [groupId2, 1, 'member']);
+
+                      console.log('Vollständiges Seeding beendet.');
+                    });
+                  });
                 });
               });
             });

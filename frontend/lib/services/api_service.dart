@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import '../models/ride.dart';
 import '../models/passenger.dart';
+import '../models/group.dart';
 
 class ApiService {
   static const String baseUrl = 'http://10.0.2.2:3000';
@@ -183,6 +184,70 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error fetching ride stats: $e');
+    }
+  }
+
+  // ------------------------
+  // Group Endpoints
+  // ------------------------
+
+  Future<List<Group>> getGroupsForUser(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/groups?user_id=$userId'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Group.fromJson(json)).toList();
+      }
+      throw Exception('Failed to load groups: ${response.body}');
+    } catch (e) {
+      throw Exception('Error fetching groups: $e');
+    }
+  }
+
+  Future<Group> createGroup({required String name, required int userId}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/groups'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': name, 'user_id': userId}),
+      );
+      if (response.statusCode == 201) {
+        return Group.fromJson(json.decode(response.body));
+      }
+      throw Exception('Failed to create group: ${response.body}');
+    } catch (e) {
+      throw Exception('Error creating group: $e');
+    }
+  }
+
+  Future<Group> joinGroup({required String code, required int userId}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/groups/join'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'code': code, 'user_id': userId}),
+      );
+      if (response.statusCode == 200) {
+        return Group.fromJson(json.decode(response.body));
+      }
+      throw Exception('Failed to join group: ${response.body}');
+    } catch (e) {
+      throw Exception('Error joining group: $e');
+    }
+  }
+
+  Future<void> leaveGroup({required int groupId, required int userId}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/groups/$groupId/leave'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'user_id': userId}),
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Failed to leave group: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Error leaving group: $e');
     }
   }
 }

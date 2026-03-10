@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 
 class UserProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
-  
+
   User? _currentUser;
   bool _isLoading = false;
 
@@ -35,5 +35,22 @@ class UserProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void updateLocalName(String name) {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) return;
+
+    if (_currentUser == null) {
+      _currentUser = User(
+        id: null,
+        name: cleanName,
+        email: 'local@ridelog.app',
+      );
+    } else {
+      _currentUser = _currentUser!.copyWith(name: cleanName);
+    }
+
+    notifyListeners();
   }
 }

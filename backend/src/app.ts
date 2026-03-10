@@ -11,6 +11,29 @@ app.use(express.urlencoded({ extended: true }));
 
 initDB();
 
+const randomGroupCode = (): string => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i += 1) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+};
+
+const selectGroupForUserSql = `
+    SELECT
+        g.id,
+        g.name,
+        g.code,
+        g.owner_user_id,
+        (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS members_count,
+        CASE WHEN g.owner_user_id = ? THEN 1 ELSE 0 END AS is_owner,
+        gm.role as current_user_role
+    FROM groups g
+    INNER JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+    WHERE g.id = ?
+`;
+
 // --- RIDE ENDPOINTS ---
 // 1. Alle Fahrten abrufen
 app.get('/rides', (req: Request, res: Response) => {
@@ -133,6 +156,166 @@ app.get('/users/:id', (req: Request, res: Response) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Benutzer nicht gefunden." });
         res.json(row);
+    });
+});
+
+// --- GROUP ENDPOINTS ---
+app.get('/groups', (req: Request, res: Response): void => {
+    const userId = Number(req.query.user_id);
+    if (!userId) {
+        res.status(400).json({ error: 'user_id ist erforderlich.' });
+        return;
+    }
+
+    const sql = `
+        SELECT
+            g.id,
+            g.name,
+            g.code,
+            g.owner_user_id,
+            (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id) AS members_count,
+            CASE WHEN g.owner_user_id = ? THEN 1 ELSE 0 END AS is_owner,
+            gm.role as current_user_role
+        FROM groups g
+        INNER JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?
+        ORDER BY g.created_at DESC
+    `;
+
+    db.all(sql, [userId, userId], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/groups', (req: Request, res: Response): void => {
+    const { name, user_id } = req.body;
+    const ownerUserId = Number(user_id);
+    const groupName = (name ?? '').toString().trim();
+
+    if (!ownerUserId || !groupName) {
+        res.status(400).json({ error: 'name und user_id sind Pflichtfelder.' });
+        return;
+    }
+
+    const createWithCode = (triesLeft: number) => {
+        if (triesLeft <= 0) {
+            res.status(500).json({ error: 'Konnte keinen eindeutigen Gruppencode erzeugen.' });
+            return;
+        }
+
+        const code = randomGroupCode();
+        db.run(
+            `INSERT INTO groups (name, code, owner_user_id) VALUES (?, ?, ?)` ,
+            [groupName, code, ownerUserId],
+            function (err) {
+                if (err) {
+                    if (err.message.includes('UNIQUE')) {
+                        createWithCode(triesLeft - 1);
+                        return;
+                    }
+                    res.status(500).json({ error: err.message });
+                    return;
+                }
+
+                const groupId = this.lastID;
+                db.run(
+                    `INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'admin')`,
+                    [groupId, ownerUserId],
+                    (memberErr) => {
+                        if (memberErr) {
+                            res.status(500).json({ error: memberErr.message });
+                            return;
+                        }
+
+                        db.get(selectGroupForUserSql, [ownerUserId, ownerUserId, groupId], (selectErr, row) => {
+                            if (selectErr) return res.status(500).json({ error: selectErr.message });
+                            res.status(201).json(row);
+                        });
+                    }
+                );
+            }
+        );
+    };
+
+    createWithCode(10);
+});
+
+app.post('/groups/join', (req: Request, res: Response): void => {
+    const { code, user_id } = req.body;
+    const userId = Number(user_id);
+    const groupCode = (code ?? '').toString().trim().toUpperCase();
+
+    if (!userId || !groupCode) {
+        res.status(400).json({ error: 'code und user_id sind Pflichtfelder.' });
+        return;
+    }
+
+    db.get(`SELECT id FROM groups WHERE code = ?`, [groupCode], (groupErr, groupRow: any) => {
+        if (groupErr) return res.status(500).json({ error: groupErr.message });
+        if (!groupRow) {
+            res.status(404).json({ error: 'Gruppe nicht gefunden.' });
+            return;
+        }
+
+        const groupId = Number(groupRow.id);
+        db.run(
+            `INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')`,
+            [groupId, userId],
+            (memberErr) => {
+                if (memberErr && !memberErr.message.includes('UNIQUE')) {
+                    res.status(500).json({ error: memberErr.message });
+                    return;
+                }
+
+                db.get(selectGroupForUserSql, [userId, userId, groupId], (selectErr, row) => {
+                    if (selectErr) return res.status(500).json({ error: selectErr.message });
+                    res.status(200).json(row);
+                });
+            }
+        );
+    });
+});
+
+app.post('/groups/:id/leave', (req: Request, res: Response): void => {
+    const groupId = Number(req.params.id);
+    const userId = Number(req.body.user_id);
+
+    if (!groupId || !userId) {
+        res.status(400).json({ error: 'group_id und user_id sind Pflichtfelder.' });
+        return;
+    }
+
+    db.get(`SELECT owner_user_id FROM groups WHERE id = ?`, [groupId], (groupErr, groupRow: any) => {
+        if (groupErr) return res.status(500).json({ error: groupErr.message });
+        if (!groupRow) {
+            res.status(404).json({ error: 'Gruppe nicht gefunden.' });
+            return;
+        }
+
+        const ownerUserId = Number(groupRow.owner_user_id);
+        if (ownerUserId === userId) {
+            db.run(`DELETE FROM group_members WHERE group_id = ?`, [groupId], (memberErr) => {
+                if (memberErr) return res.status(500).json({ error: memberErr.message });
+                db.run(`DELETE FROM groups WHERE id = ?`, [groupId], function (deleteErr) {
+                    if (deleteErr) return res.status(500).json({ error: deleteErr.message });
+                    res.json({ deleted_group: true, message: 'Eigene Gruppe gelöscht.' });
+                });
+            });
+            return;
+        }
+
+        db.run(
+            `DELETE FROM group_members WHERE group_id = ? AND user_id = ?`,
+            [groupId, userId],
+            function (leaveErr) {
+                if (leaveErr) return res.status(500).json({ error: leaveErr.message });
+                if (this.changes === 0) {
+                    res.status(404).json({ error: 'Mitgliedschaft nicht gefunden.' });
+                    return;
+                }
+                res.json({ deleted_group: false, message: 'Gruppe verlassen.' });
+            }
+        );
     });
 });
 
