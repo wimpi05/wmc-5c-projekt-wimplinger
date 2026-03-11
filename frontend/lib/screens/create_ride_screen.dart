@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/group.dart';
 import '../models/ride.dart';
 import '../providers/ride_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/api_service.dart';
 
 const double _kUnifiedHeaderHeight = 108;
 const double _kUnifiedHeaderTitleSize = 28;
@@ -26,10 +28,22 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 	final _seatsController = TextEditingController(text: '4');
 	final _priceController = TextEditingController();
 	final _noteController = TextEditingController();
+	final ApiService _apiService = ApiService();
 
 	DateTime? _selectedDate;
 	TimeOfDay? _selectedTime;
 	bool _isSubmitting = false;
+	bool _groupsLoading = true;
+	List<Group> _groups = [];
+	int? _selectedGroupId;
+
+	@override
+	void initState() {
+		super.initState();
+		WidgetsBinding.instance.addPostFrameCallback((_) {
+			_loadGroups();
+		});
+	}
 
 	@override
 	void dispose() {
@@ -48,11 +62,13 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		final userProvider = context.watch<UserProvider>();
 		final currentUser = userProvider.currentUser;
 		final bool hasUsername = (currentUser?.name.trim().isNotEmpty ?? false);
+		final bool hasGroupSelection = _selectedGroupId != null;
 		final topInset = MediaQuery.of(context).padding.top;
-		final primary = Theme.of(context).colorScheme.primary;
+		final scheme = Theme.of(context).colorScheme;
+		final primary = scheme.primary;
 
 		return Scaffold(
-			backgroundColor: const Color(0xFFF5F7FA),
+			backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 			body: Column(
 				children: [
 					Container(
@@ -85,6 +101,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 									crossAxisAlignment: CrossAxisAlignment.start,
 									children: [
 								if (!hasUsername) _buildProfileRequiredCard(),
+								if (hasUsername) _buildGroupSelectorCard(),
 								_buildSectionLabel(Icons.my_location_outlined, 'Startort'),
 								_buildTextField(
 									controller: _startController,
@@ -184,20 +201,18 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 								SizedBox(
 									width: double.infinity,
 									child: ElevatedButton(
-										onPressed: (!hasUsername || _isSubmitting) ? null : _submit,
+										onPressed: (!hasUsername || !hasGroupSelection || _groupsLoading || _isSubmitting) ? null : _submit,
 										style: ElevatedButton.styleFrom(
-											backgroundColor: primary,
-											foregroundColor: Colors.white,
-											disabledBackgroundColor: const Color(0xFFB8BFDF),
 											padding: const EdgeInsets.symmetric(vertical: 14),
-											shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
 											elevation: 0,
+											disabledBackgroundColor: scheme.surfaceContainerHighest,
+											disabledForegroundColor: scheme.onSurfaceVariant,
 										),
 										child: _isSubmitting
 												? const SizedBox(
 														width: 20,
 														height: 20,
-														child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+														child: CircularProgressIndicator(strokeWidth: 2),
 													)
 												: const Text('Fahrt veröffentlichen', style: TextStyle(fontWeight: FontWeight.w700)),
 									),
@@ -226,30 +241,90 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		);
 	}
 
-	Widget _buildProfileRequiredCard() {
+	Widget _buildGroupSelectorCard() {
+		final scheme = Theme.of(context).colorScheme;
+
 		return Container(
 			width: double.infinity,
 			margin: const EdgeInsets.only(bottom: 14),
 			padding: const EdgeInsets.all(12),
 			decoration: BoxDecoration(
-				color: const Color(0xFFEAF6EA),
-				border: Border.all(color: const Color(0xFF9AD19C)),
+				color: scheme.surface,
+				borderRadius: BorderRadius.circular(14),
+				border: Border.all(color: scheme.outlineVariant),
+			),
+			child: Column(
+				crossAxisAlignment: CrossAxisAlignment.start,
+				children: [
+					Text('Gruppe', style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onSurface)),
+					const SizedBox(height: 8),
+					if (_groupsLoading)
+						const Padding(
+							padding: EdgeInsets.symmetric(vertical: 8),
+							child: Center(child: CircularProgressIndicator()),
+						)
+					else if (_groups.isEmpty)
+						Text(
+							'Du bist in keiner Gruppe. Erstelle oder tritt zuerst einer Gruppe bei.',
+							style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+						)
+					else
+						Container(
+							height: 46,
+							padding: const EdgeInsets.symmetric(horizontal: 10),
+							decoration: BoxDecoration(
+								color: scheme.surfaceContainerHighest,
+								borderRadius: BorderRadius.circular(12),
+							),
+							child: DropdownButtonHideUnderline(
+								child: DropdownButton<int>(
+									value: _selectedGroupId,
+									isExpanded: true,
+									hint: const Text('Gruppe auswählen'),
+									items: _groups
+										.map(
+											(group) => DropdownMenuItem<int>(
+												value: group.id,
+												child: Text(group.name),
+											),
+										)
+										.toList(),
+									onChanged: (value) {
+										setState(() => _selectedGroupId = value);
+									},
+								),
+							),
+						),
+				],
+			),
+		);
+	}
+
+	Widget _buildProfileRequiredCard() {
+		final scheme = Theme.of(context).colorScheme;
+		return Container(
+			width: double.infinity,
+			margin: const EdgeInsets.only(bottom: 14),
+			padding: const EdgeInsets.all(12),
+			decoration: BoxDecoration(
+				color: scheme.tertiaryContainer,
+				border: Border.all(color: scheme.tertiary),
 				borderRadius: BorderRadius.circular(14),
 			),
 			child: Column(
 				crossAxisAlignment: CrossAxisAlignment.start,
 				children: [
-					const Row(
+					Row(
 						children: [
-							Icon(Icons.info_outline, size: 18, color: Color(0xFF2E7D32)),
+							Icon(Icons.info_outline, size: 18, color: scheme.tertiary),
 							SizedBox(width: 8),
-							Text('Profil erforderlich', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF2E7D32))),
+							Text('Profil erforderlich', style: TextStyle(fontWeight: FontWeight.w700, color: scheme.onTertiaryContainer)),
 						],
 					),
 					const SizedBox(height: 6),
-					const Text(
-						'Bitte lege zuerst in den Einstellungen einen Benutzernamen fest, bevor du eine Fahrt erstellst.',
-						style: TextStyle(color: Color(0xFF3D5A40), fontSize: 13),
+					Text(
+						'Bitte melde dich an und hinterlege einen Namen, bevor du eine Fahrt erstellst.',
+						style: TextStyle(color: scheme.onTertiaryContainer, fontSize: 13),
 					),
 					const SizedBox(height: 8),
 					TextButton(
@@ -270,13 +345,14 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 	}
 
 	Widget _buildSectionLabel(IconData icon, String text) {
+		final scheme = Theme.of(context).colorScheme;
 		return Padding(
 			padding: const EdgeInsets.only(bottom: 6),
 			child: Row(
 				children: [
-					Icon(icon, size: 14, color: const Color(0xFF6F78A8)),
+					Icon(icon, size: 14, color: scheme.primary),
 					const SizedBox(width: 6),
-					Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF394057))),
+					Text(text, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: scheme.onSurface)),
 				],
 			),
 		);
@@ -289,6 +365,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		String? Function(String?)? validator,
 		int maxLines = 1,
 	}) {
+		final scheme = Theme.of(context).colorScheme;
 		return TextFormField(
 			controller: controller,
 			keyboardType: keyboardType,
@@ -297,7 +374,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 			decoration: InputDecoration(
 				hintText: hint,
 				filled: true,
-				fillColor: const Color(0xFFEEF0F6),
+				fillColor: scheme.surfaceContainerHighest,
 				contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
 				border: OutlineInputBorder(
 					borderRadius: BorderRadius.circular(14),
@@ -315,6 +392,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		required VoidCallback onTap,
 		String? Function(String?)? validator,
 	}) {
+		final scheme = Theme.of(context).colorScheme;
 		return TextFormField(
 			controller: controller,
 			readOnly: true,
@@ -324,7 +402,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 				hintText: hint,
 				suffixIcon: Icon(icon, size: 16),
 				filled: true,
-				fillColor: const Color(0xFFEEF0F6),
+				fillColor: scheme.surfaceContainerHighest,
 				contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
 				border: OutlineInputBorder(
 					borderRadius: BorderRadius.circular(14),
@@ -375,6 +453,12 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 			);
 			return;
 		}
+		if (_selectedGroupId == null) {
+			ScaffoldMessenger.of(context).showSnackBar(
+				const SnackBar(content: Text('Bitte zuerst eine Gruppe auswählen.')),
+			);
+			return;
+		}
 
 		if (!_formKey.currentState!.validate()) {
 			return;
@@ -386,10 +470,16 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		final seats = int.parse(_seatsController.text.trim());
 		final priceText = _priceController.text.trim();
 		final noteText = _noteController.text.trim();
+		final selectedGroup = _groups.cast<Group?>().firstWhere(
+			(group) => group?.id == _selectedGroupId,
+			orElse: () => null,
+		);
 
 		final newRide = Ride(
 			id: 0,
 			driverUserId: user.id!,
+			groupId: _selectedGroupId,
+			groupName: selectedGroup?.name,
 			driverUsername: user.name,
 			startName: _startController.text.trim(),
 			endName: _destinationController.text.trim(),
@@ -418,5 +508,35 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		ScaffoldMessenger.of(context).showSnackBar(
 			SnackBar(content: Text(error ?? 'Fahrt konnte nicht erstellt werden.')),
 		);
+	}
+
+	Future<void> _loadGroups() async {
+		final userId = context.read<UserProvider>().currentUser?.id;
+		if (userId == null) {
+			if (!mounted) return;
+			setState(() {
+				_groups = [];
+				_groupsLoading = false;
+				_selectedGroupId = null;
+			});
+			return;
+		}
+
+		try {
+			final groups = await _apiService.getGroupsForUser(userId);
+			if (!mounted) return;
+			setState(() {
+				_groups = groups;
+				_groupsLoading = false;
+				_selectedGroupId = groups.isNotEmpty ? groups.first.id : null;
+			});
+		} catch (_) {
+			if (!mounted) return;
+			setState(() {
+				_groups = [];
+				_groupsLoading = false;
+				_selectedGroupId = null;
+			});
+		}
 	}
 }

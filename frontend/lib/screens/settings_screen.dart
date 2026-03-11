@@ -4,6 +4,7 @@ import '../models/group.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 const double _kUnifiedHeaderHeight = 108;
 const double _kUnifiedHeaderTitleSize = 28;
@@ -59,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 		final primary = Theme.of(context).colorScheme.primary;
 
 		return Container(
-			color: const Color(0xFFF5F7FA),
+			color: Theme.of(context).scaffoldBackgroundColor,
 			child: Column(
 				children: [
 					Container(
@@ -114,17 +115,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
 										child: Center(child: CircularProgressIndicator()),
 									)
 								else if (_groups.isEmpty)
-									Container(
-										padding: const EdgeInsets.all(14),
-										decoration: BoxDecoration(
-											color: Colors.white,
-											borderRadius: BorderRadius.circular(14),
-											border: Border.all(color: const Color(0xFFE4E7F0)),
-										),
-										child: const Text(
-											'Du bist aktuell in keiner Gruppe.',
-											style: TextStyle(color: Color(0xFF6D7386)),
-										),
+									Builder(
+										builder: (context) {
+											final scheme = Theme.of(context).colorScheme;
+											return Container(
+												padding: const EdgeInsets.all(14),
+												decoration: BoxDecoration(
+													color: scheme.surfaceContainer,
+													borderRadius: BorderRadius.circular(14),
+													border: Border.all(color: scheme.outlineVariant),
+												),
+												child: Row(
+													children: [
+														Icon(Icons.groups_outlined, color: scheme.onSurfaceVariant, size: 18),
+														const SizedBox(width: 10),
+														Expanded(
+															child: Text(
+																'Du bist aktuell in keiner Gruppe.',
+																style: TextStyle(color: scheme.onSurfaceVariant),
+															),
+														),
+													],
+												),
+											);
+										},
 									)
 								else
 									..._groups.map(_buildGroupCard),
@@ -137,14 +151,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 	}
 
 	Widget _sectionTitle(String text) {
+		final scheme = Theme.of(context).colorScheme;
 		return Padding(
 			padding: const EdgeInsets.only(bottom: 8),
 			child: Text(
 				text,
-				style: const TextStyle(
+				style: TextStyle(
 					fontSize: 12,
 					letterSpacing: 0.3,
-					color: Color(0xFF8A8FA0),
+					color: scheme.onSurfaceVariant,
 					fontWeight: FontWeight.w700,
 				),
 			),
@@ -152,18 +167,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
 	}
 
 	Widget _buildProfileCard(bool hasName) {
-		final String currentName = context.watch<UserProvider>().currentUser?.name ?? '';
+		final user = context.watch<UserProvider>().currentUser;
+		final String currentName = user?.name ?? '';
+		final String email = user?.email ?? '';
+		final scheme = Theme.of(context).colorScheme;
 
 		return Container(
 			padding: const EdgeInsets.all(12),
 			decoration: BoxDecoration(
-				color: Colors.white,
+				color: scheme.surface,
 				borderRadius: BorderRadius.circular(14),
-				border: Border.all(color: const Color(0xFFE4E7F0)),
+				border: Border.all(color: scheme.outlineVariant),
 			),
 			child: Column(
 				crossAxisAlignment: CrossAxisAlignment.start,
 				children: [
+					if (email.isNotEmpty) ...[
+						Text(
+							email,
+							style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+						),
+						const SizedBox(height: 8),
+					],
 					Row(
 						children: [
 							Expanded(
@@ -178,15 +203,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 											)
 										: Text(
 												hasName ? currentName : 'Profil einrichten',
-												style: const TextStyle(fontSize: 18, color: Color(0xFF3A4053), fontWeight: FontWeight.w600),
+												style: TextStyle(fontSize: 18, color: scheme.onSurface, fontWeight: FontWeight.w600),
 											),
 							),
 							TextButton(
 								onPressed: _isEditingName ? _saveName : () => setState(() => _isEditingName = true),
 								style: TextButton.styleFrom(
 									minimumSize: const Size(56, 30),
-									backgroundColor: const Color(0xFFF1F2F7),
-									foregroundColor: const Color(0xFF596184),
+									backgroundColor: scheme.surfaceContainerHighest,
+									foregroundColor: scheme.onSurfaceVariant,
 									padding: const EdgeInsets.symmetric(horizontal: 12),
 									shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
 								),
@@ -195,9 +220,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 						],
 					),
 					const SizedBox(height: 8),
-					const Text(
-						'Bitte Name hinterlegen, um Fahrten zu erstellen und beizutreten.',
-						style: TextStyle(fontSize: 12, color: Color(0xFF8A8FA0)),
+					Row(
+						children: [
+							Expanded(
+								child: Text(
+									'Du bist mit deinem Konto angemeldet.',
+									style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+								),
+							),
+							TextButton.icon(
+								onPressed: () async {
+									await context.read<UserProvider>().logout();
+								},
+								icon: const Icon(Icons.logout, size: 16),
+								label: const Text('Logout'),
+							),
+						],
 					),
 				],
 			),
@@ -207,17 +245,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 	Widget _buildThemeCard() {
 		final themeProvider = context.watch<ThemeProvider>();
 		final primary = Theme.of(context).colorScheme.primary;
-		final selected = _themeOptions.firstWhere(
-			(option) => option.seedColor.value == themeProvider.seedColor.value,
-			orElse: () => _themeOptions.first,
+		final scheme = Theme.of(context).colorScheme;
+		final selected = AppThemeCatalog.options.firstWhere(
+			(option) => option.preset == themeProvider.preset,
+			orElse: () => AppThemeCatalog.options.first,
 		);
 
 		return Container(
 			padding: const EdgeInsets.all(12),
 			decoration: BoxDecoration(
-				color: Colors.white,
+				color: scheme.surface,
 				borderRadius: BorderRadius.circular(14),
-				border: Border.all(color: const Color(0xFFE4E7F0)),
+				border: Border.all(color: scheme.outlineVariant),
 			),
 			child: Column(
 				crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +265,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 						children: [
 							Icon(Icons.palette_outlined, size: 16, color: primary),
 							SizedBox(width: 8),
-							Text('App-Design', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF3A4053))),
+							Text('App-Design', style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface)),
 						],
 					),
 					const SizedBox(height: 10),
@@ -234,23 +273,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 						height: 36,
 						padding: const EdgeInsets.symmetric(horizontal: 10),
 						decoration: BoxDecoration(
-							color: const Color(0xFFF1F2F7),
+							color: scheme.surfaceContainerHighest,
 							borderRadius: BorderRadius.circular(12),
 						),
 						child: DropdownButtonHideUnderline(
-							child: DropdownButton<_ThemeOption>(
+							child: DropdownButton<AppThemeOption>(
 								value: selected,
 								isExpanded: true,
 								icon: const Icon(Icons.keyboard_arrow_down),
-								items: _themeOptions
+								items: AppThemeCatalog.options
 										.map(
-											(option) => DropdownMenuItem<_ThemeOption>(
+											(option) => DropdownMenuItem<AppThemeOption>(
 												value: option,
 												child: Row(
 													children: [
-														Container(width: 14, height: 14, decoration: BoxDecoration(color: option.seedColor, borderRadius: BorderRadius.circular(3))),
+														Container(width: 14, height: 14, decoration: BoxDecoration(color: option.preview, borderRadius: BorderRadius.circular(3))),
 														const SizedBox(width: 8),
-														Text(option.label),
+														Text(_themeLabelDe(option.label)),
 													],
 												),
 											),
@@ -258,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 										.toList(),
 								onChanged: (option) {
 									if (option == null) return;
-									themeProvider.setSeedColor(option.seedColor);
+									themeProvider.setThemePreset(option.preset);
 								},
 							),
 						),
@@ -268,24 +307,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 		);
 	}
 
+	String _themeLabelDe(String label) => label;
+
 	Widget _smallActionButton(String text, {bool filled = false, required VoidCallback onTap}) {
+		final scheme = Theme.of(context).colorScheme;
 		return InkWell(
 			onTap: onTap,
 			borderRadius: BorderRadius.circular(20),
 			child: Container(
 				padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
 				decoration: BoxDecoration(
-					color: filled ? const Color(0xFFA5D6A7) : Colors.white,
+					color: filled ? scheme.primaryContainer : scheme.surface,
 					borderRadius: BorderRadius.circular(20),
-					border: Border.all(color: filled ? const Color(0xFFA5D6A7) : const Color(0xFFD8DDEA)),
+					border: Border.all(color: filled ? scheme.primaryContainer : scheme.outlineVariant),
 				),
 				child: Row(
 					children: [
 						if (filled) ...[
-							const Icon(Icons.add, size: 14, color: Color(0xFF2E7D32)),
+							Icon(Icons.add, size: 14, color: scheme.primary),
 							const SizedBox(width: 4),
 						],
-						Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF4A5064))),
+						Text(text, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: scheme.onSurface)),
 					],
 				),
 			),
@@ -293,13 +335,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 	}
 
 	Widget _buildGroupCard(Group group) {
+		final scheme = Theme.of(context).colorScheme;
 		return Container(
 			margin: const EdgeInsets.only(bottom: 10),
 			padding: const EdgeInsets.all(12),
 			decoration: BoxDecoration(
-				color: Colors.white,
+				color: scheme.surface,
 				borderRadius: BorderRadius.circular(14),
-				border: Border.all(color: const Color(0xFFE4E7F0)),
+				border: Border.all(color: scheme.outlineVariant),
 			),
 			child: Row(
 				children: [
@@ -307,23 +350,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 						height: 32,
 						width: 32,
 						decoration: BoxDecoration(
-							color: const Color(0xFFEFF1F8),
+							color: scheme.surfaceContainerHighest,
 							borderRadius: BorderRadius.circular(16),
 						),
-						child: const Icon(Icons.groups_2_outlined, size: 18, color: Color(0xFF6070B6)),
+						child: Icon(Icons.groups_2_outlined, size: 18, color: scheme.primary),
 					),
 					const SizedBox(width: 10),
 					Expanded(
 						child: Column(
 							crossAxisAlignment: CrossAxisAlignment.start,
 							children: [
-								Text(group.name, style: const TextStyle(fontSize: 16, color: Color(0xFF2F3650), fontWeight: FontWeight.w600)),
+								Text(group.name, style: TextStyle(fontSize: 16, color: scheme.onSurface, fontWeight: FontWeight.w600)),
 								const SizedBox(height: 2),
-								Text('${group.membersCount} Mitglieder - Code: ${group.code}', style: const TextStyle(fontSize: 13, color: Color(0xFF6D7386))),
+								Text('${group.membersCount} Mitglieder - Code: ${group.code}', style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
 								if (group.isOwner)
-									const Padding(
+									Padding(
 										padding: EdgeInsets.only(top: 2),
-										child: Text('Admin', style: TextStyle(fontSize: 12, color: Color(0xFF3FA35C), fontWeight: FontWeight.w600)),
+										child: Text('Admin', style: TextStyle(fontSize: 12, color: scheme.primary, fontWeight: FontWeight.w600)),
 									),
 							],
 						),
@@ -341,28 +384,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
 								ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $e')));
 							}
 						},
-						icon: Icon(group.isOwner ? Icons.delete_outline : Icons.logout, size: 18, color: const Color(0xFF858CA1)),
+						icon: Icon(group.isOwner ? Icons.delete_outline : Icons.logout, size: 18, color: scheme.onSurfaceVariant),
 					),
 				],
 			),
 		);
 	}
 
-	void _saveName() {
+	Future<void> _saveName() async {
 		final name = _nameController.text.trim();
 		if (name.isEmpty) {
 			ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bitte einen Namen eingeben.')));
 			return;
 		}
-		context.read<UserProvider>().updateLocalName(name);
-		setState(() => _isEditingName = false);
+
+		try {
+			await context.read<UserProvider>().updateProfileName(name);
+			if (!mounted) return;
+			setState(() => _isEditingName = false);
+			ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name gespeichert.')));
+		} catch (e) {
+			if (!mounted) return;
+			ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Speichern fehlgeschlagen: $e')));
+		}
 	}
 
 	Future<void> _showJoinDialog() async {
 		final userId = context.read<UserProvider>().currentUser?.id;
 		if (userId == null) {
 			ScaffoldMessenger.of(context).showSnackBar(
-				const SnackBar(content: Text('Bitte zuerst ein Profil mit Name anlegen.')),
+				const SnackBar(content: Text('Bitte zuerst einloggen.')),
 			);
 			return;
 		}
@@ -395,7 +446,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 		final userId = context.read<UserProvider>().currentUser?.id;
 		if (userId == null) {
 			ScaffoldMessenger.of(context).showSnackBar(
-				const SnackBar(content: Text('Bitte zuerst ein Profil mit Name anlegen.')),
+				const SnackBar(content: Text('Bitte zuerst einloggen.')),
 			);
 			return;
 		}
@@ -450,17 +501,3 @@ class _SettingsScreenState extends State<SettingsScreen> {
 	}
 }
 
-class _ThemeOption {
-	final String label;
-	final Color seedColor;
-
-	const _ThemeOption({required this.label, required this.seedColor});
-}
-
-const List<_ThemeOption> _themeOptions = [
-	_ThemeOption(label: 'Tiefes Indigo', seedColor: Colors.indigo),
-	_ThemeOption(label: 'Ozeanblau', seedColor: Colors.blue),
-	_ThemeOption(label: 'Waldgruen', seedColor: Colors.green),
-	_ThemeOption(label: 'Sonnenuntergang Orange', seedColor: Colors.deepOrange),
-	_ThemeOption(label: 'Schiefergrau', seedColor: Colors.blueGrey),
-];

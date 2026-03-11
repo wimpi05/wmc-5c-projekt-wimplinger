@@ -21,11 +21,12 @@ class RideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDriver = currentUserId != null && ride.driverUserId == currentUserId;
+    final scheme = Theme.of(context).colorScheme;
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 0,
-      color: Colors.white,
+      color: Theme.of(context).cardColor,
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -37,24 +38,24 @@ class RideCard extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      _buildLocationRow(Icons.radio_button_checked, 'Von', ride.startName, const Color(0xFF3F51B5)),
+                      _buildLocationRow(Icons.radio_button_checked, 'Von', ride.startName, scheme.primary, scheme),
                       const SizedBox(height: 12),
-                      _buildLocationRow(Icons.location_on, 'Nach', ride.endName, Colors.green),
+                      _buildLocationRow(Icons.location_on, 'Nach', ride.endName, scheme.tertiary, scheme),
                     ],
                   ),
                 ),
-                _buildSeatIndicator(),
+                _buildSeatIndicator(scheme),
               ],
             ),
             const SizedBox(height: 20),
 
             Row(
               children: [
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                Icon(Icons.access_time, size: 16, color: scheme.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(
                   _formatDateTime(ride.departTime),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
                 ),
               ],
             ),
@@ -65,12 +66,12 @@ class RideCard extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Colors.grey[800],
+                color: scheme.onSurface,
               ),
             ),
             const SizedBox(height: 20),
 
-            _buildActionButtons(isDriver),
+            _buildActionButtons(isDriver, scheme),
           ],
         ),
       ),
@@ -83,7 +84,7 @@ class RideCard extends StatelessWidget {
     return '$dateStr, $timeStr';
   }
 
-  Widget _buildLocationRow(IconData icon, String label, String value, Color color) {
+  Widget _buildLocationRow(IconData icon, String label, String value, Color color, ColorScheme scheme) {
     return Row(
       children: [
         Icon(icon, color: color, size: 20),
@@ -91,10 +92,10 @@ class RideCard extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(label, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
             Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: scheme.onSurface),
             ),
           ],
         ),
@@ -102,7 +103,7 @@ class RideCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSeatIndicator() {
+  Widget _buildSeatIndicator(ColorScheme scheme) {
     Color indicatorColor = ride.seatsAvailable > 1 ? Colors.green : Colors.orange;
     if (ride.isFull) indicatorColor = Colors.red;
 
@@ -114,7 +115,7 @@ class RideCard extends StatelessWidget {
           width: 65,
           child: CircularProgressIndicator(
             value: ride.occupancyRate,
-            backgroundColor: Colors.grey[100],
+            backgroundColor: scheme.surfaceContainerHighest,
             color: indicatorColor,
             strokeWidth: 7,
           ),
@@ -136,23 +137,23 @@ class RideCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(bool isDriver) {
+  Widget _buildActionButtons(bool isDriver, ColorScheme scheme) {
     if (isDriver) {
       return Row(
         children: [
           _actionButton(
             'Bearbeiten',
             Icons.edit_outlined,
-            const Color(0xFFE8EAF6),
-            const Color(0xFF3F51B5),
+            scheme.primaryContainer,
+            scheme.primary,
             onEdit,
           ),
           const SizedBox(width: 12),
           _actionButton(
             'Löschen',
             Icons.delete_outline,
-            const Color(0xFFFFEBEE),
-            Colors.redAccent,
+            scheme.errorContainer,
+            scheme.error,
             onDelete,
           ),
         ],
@@ -161,12 +162,12 @@ class RideCard extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: ride.isFull ? null : onJoin,
+        onPressed: (ride.isFull || ride.currentUserJoined) ? null : onJoin,
         icon: const Icon(Icons.person_add_alt_outlined, size: 18),
-        label: Text(ride.isFull ? 'Voll' : 'Fahrt beitreten'),
+        label: Text(ride.isFull ? 'Voll' : ride.currentUserJoined ? 'Beigetreten' : 'Fahrt beitreten'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF3F51B5),
-          foregroundColor: Colors.white,
+          backgroundColor: scheme.primary,
+          foregroundColor: scheme.onPrimary,
           disabledBackgroundColor: Colors.grey[300],
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),

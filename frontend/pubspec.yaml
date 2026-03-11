@@ -20,6 +20,12 @@ dependencies:
   cupertino_icons: ^1.0.2
   intl: ^0.20.2
 
+  # Charts
+  fl_chart: ^0.68.0
+
+  # Local session storage
+  shared_preferences: ^2.5.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

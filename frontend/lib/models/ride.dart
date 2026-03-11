@@ -1,6 +1,8 @@
 class Ride {
   final int id;
   final int driverUserId;
+  final int? groupId;
+  final String? groupName;
   final String driverUsername; 
   final String startName;
   final String endName;
@@ -10,11 +12,14 @@ class Ride {
   final double? distanceKm;
   final String? note;
   final double? pricePerSeat;
+  final bool currentUserJoined;
   final DateTime createdAt;
 
   Ride({
     required this.id,
     required this.driverUserId,
+    this.groupId,
+    this.groupName,
     required this.driverUsername,
     required this.startName,
     required this.endName,
@@ -24,6 +29,7 @@ class Ride {
     this.distanceKm,
     this.note,
     this.pricePerSeat,
+    this.currentUserJoined = false,
     required this.createdAt,
   });
 
@@ -31,6 +37,8 @@ class Ride {
     return Ride(
       id: json['id'],
       driverUserId: json['driver_user_id'],
+      groupId: json['group_id'],
+      groupName: json['group_name'],
       driverUsername: json['driver_username'] ?? 'Unknown',
       startName: json['start_name'],
       endName: json['end_name'],
@@ -40,12 +48,15 @@ class Ride {
       distanceKm: json['distance_km']?.toDouble(),
       note: json['note'],
       pricePerSeat: json['price_per_seat']?.toDouble(),
+      currentUserJoined: json['current_user_joined'] == 1 || json['current_user_joined'] == true,
       createdAt: DateTime.parse(json['created_at']),
     );
   }
   Ride copyWith({
     int? id,
     int? driverUserId,
+    int? groupId,
+    String? groupName,
     String? driverUsername,
     String? startName,
     String? endName,
@@ -55,11 +66,14 @@ class Ride {
     double? distanceKm,
     String? note,
     double? pricePerSeat,
+    bool? currentUserJoined,
     DateTime? createdAt,
   }) {
     return Ride(
       id: id ?? this.id,
       driverUserId: driverUserId ?? this.driverUserId,
+      groupId: groupId ?? this.groupId,
+      groupName: groupName ?? this.groupName,
       driverUsername: driverUsername ?? this.driverUsername,
       startName: startName ?? this.startName,
       endName: endName ?? this.endName,
@@ -69,6 +83,7 @@ class Ride {
       distanceKm: distanceKm ?? this.distanceKm,
       note: note ?? this.note,
       pricePerSeat: pricePerSeat ?? this.pricePerSeat,
+      currentUserJoined: currentUserJoined ?? this.currentUserJoined,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -90,6 +105,7 @@ class Ride {
     return {
       'id': id,
       'driver_user_id': driverUserId,
+      'group_id': groupId,
       'start_name': startName,
       'end_name': endName,
       'depart_time': departTime.toIso8601String(),

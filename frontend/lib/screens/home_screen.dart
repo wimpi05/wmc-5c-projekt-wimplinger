@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'create_ride_screen.dart';
 import 'ride_history_screen.dart';
 import 'settings_screen.dart';
+import 'stats_screen.dart';
 import '../providers/ride_provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/ride_card.dart';
@@ -39,21 +40,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final bool isHome = _selectedNavIndex == 0;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final fabShape = theme.cardTheme.shape is OutlinedBorder
+        ? theme.cardTheme.shape as OutlinedBorder
+        : RoundedRectangleBorder(borderRadius: BorderRadius.circular(18));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: isHome ? _buildHomeBody() : _buildSectionPage(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreateRide(context),
-        backgroundColor: const Color(0xFFA5D6A7),
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: const Icon(Icons.add, size: 30, color: Colors.black54),
+        backgroundColor: scheme.secondaryContainer,
+        foregroundColor: scheme.onSecondaryContainer,
+        focusColor: scheme.secondary,
+        hoverColor: scheme.secondary.withValues(alpha: 0.12),
+        splashColor: scheme.onSecondaryContainer.withValues(alpha: 0.12),
+        elevation: 0,
+        highlightElevation: 0,
+        shape: fabShape,
+        child: const Icon(Icons.add, size: 30),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
+        color: scheme.surface,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
         elevation: 8,
@@ -80,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Widget _buildHomeBody() {
     final double topInset = MediaQuery.of(context).padding.top;
     final primary = Theme.of(context).colorScheme.primary;
+    final scheme = Theme.of(context).colorScheme;
 
     return Column(
       children: [
@@ -114,12 +125,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
         Container(
           width: double.infinity,
-          color: const Color(0xFFF0F1F5),
+          color: scheme.surfaceContainerLow,
           padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
           child: Container(
             height: 50,
             decoration: BoxDecoration(
-              color: const Color(0xFFE6E7EC),
+              color: scheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(25),
             ),
             child: TabBar(
@@ -130,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 color: primary,
               ),
               labelColor: Colors.white,
-              unselectedLabelColor: const Color(0xFF5C6379),
+              unselectedLabelColor: scheme.onSurfaceVariant,
               indicatorSize: TabBarIndicatorSize.tab,
               tabs: const [
                 Tab(child: Text('Heute', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -159,6 +170,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }) {
     final bool isActive = _selectedNavIndex == index;
     final primary = Theme.of(context).colorScheme.primary;
+    final scheme = Theme.of(context).colorScheme;
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
@@ -173,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 21, color: isActive ? primary : const Color(0xFF777E91)),
+              Icon(icon, size: 21, color: isActive ? primary : scheme.onSurfaceVariant),
               const SizedBox(height: 1),
               SizedBox(
                 width: 68,
@@ -187,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   style: TextStyle(
                     fontSize: 10,
                     height: 1.0,
-                    color: isActive ? primary : const Color(0xFF777E91),
+                    color: isActive ? primary : scheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -202,9 +214,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (_selectedNavIndex == 1) {
       return const RideHistoryScreen();
     }
-    const style = TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
     if (_selectedNavIndex == 3) {
-      return const SafeArea(child: Center(child: Text('Der Statistik-Screen ist als naechstes dran.', style: style)));
+      return const StatsScreen();
     }
     return const SettingsScreen();
   }

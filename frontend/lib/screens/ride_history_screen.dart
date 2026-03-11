@@ -34,7 +34,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 		if (widget.embedded) return content;
 
 		return Scaffold(
-			backgroundColor: const Color(0xFFF5F7FA),
+			backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 			body: content,
 		);
 	}
@@ -45,6 +45,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 		final currentUserId = userProvider.currentUser?.id;
 		final topInset = MediaQuery.of(context).padding.top;
 		final primary = Theme.of(context).colorScheme.primary;
+		final scheme = Theme.of(context).colorScheme;
 
 		final now = DateTime.now();
 		final allPastRides = rideProvider.rides.where((ride) => ride.departTime.isBefore(now)).toList()
@@ -61,7 +62,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 			}
 
 			if (_selectedRole == HistoryRole.passenger) {
-				return currentUserId != null && ride.driverUserId != currentUserId;
+				return currentUserId != null && ride.driverUserId != currentUserId && ride.currentUserJoined;
 			}
 
 			return true;
@@ -102,7 +103,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 				),
 				Container(
 					width: double.infinity,
-					color: const Color(0xFFF0F1F5),
+					color: scheme.surfaceContainerLow,
 					padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
 					child: Row(
 						children: [
@@ -110,9 +111,9 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 								child: _buildFilterDropdown<HistoryRole>(
 									value: _selectedRole,
 									items: const {
-										HistoryRole.all: 'All Rides',
-										HistoryRole.driver: 'Driver',
-										HistoryRole.passenger: 'Passenger',
+										HistoryRole.all: 'Alle Gruppenfahrten',
+										HistoryRole.driver: 'Als Fahrer',
+										HistoryRole.passenger: 'Als Mitfahrer',
 									},
 									onChanged: (value) => setState(() => _selectedRole = value),
 								),
@@ -122,10 +123,10 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 								child: _buildFilterDropdown<HistoryPeriod>(
 									value: _selectedPeriod,
 									items: const {
-										HistoryPeriod.all: 'All Time',
-										HistoryPeriod.last7: 'Last 7 Days',
-										HistoryPeriod.last30: 'Last 30 Days',
-										HistoryPeriod.last90: 'Last 90 Days',
+										HistoryPeriod.all: 'Gesamte Zeit',
+										HistoryPeriod.last7: 'Letzte 7 Tage',
+										HistoryPeriod.last30: 'Letzte 30 Tage',
+										HistoryPeriod.last90: 'Letzte 90 Tage',
 									},
 									onChanged: (value) => setState(() => _selectedPeriod = value),
 								),
@@ -137,11 +138,11 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 					padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
 					child: Row(
 						children: [
-							Expanded(child: _buildStatCard('${totalRides}', 'Total Rides', const Color(0xFF5362C2))),
+							Expanded(child: _buildStatCard('${totalRides}', 'Fahrten', const Color(0xFF5362C2))),
 							const SizedBox(width: 8),
-							Expanded(child: _buildStatCard(totalKm.toStringAsFixed(1), 'KM Driven', const Color(0xFF76B788))),
+							Expanded(child: _buildStatCard(totalKm.toStringAsFixed(1), 'KM', const Color(0xFF76B788))),
 							const SizedBox(width: 8),
-							Expanded(child: _buildStatCard(savedCo2Kg.toStringAsFixed(1), 'kg CO2', const Color(0xFF6B63C8))),
+							Expanded(child: _buildStatCard(savedCo2Kg.toStringAsFixed(1), 'kg CO₂', const Color(0xFF6B63C8))),
 						],
 					),
 				),
@@ -149,9 +150,10 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 					child: rideProvider.isLoading && rideProvider.rides.isEmpty
 							? const Center(child: CircularProgressIndicator())
 							: filtered.isEmpty
-									? const Center(
+									?
+									const Center(
 											child: Text(
-												'No rides found for this filter.',
+												'Keine Fahrten für diesen Filter gefunden.',
 												style: TextStyle(color: Colors.grey),
 											),
 										)
@@ -188,11 +190,12 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 		required Map<T, String> items,
 		required ValueChanged<T> onChanged,
 	}) {
+		final scheme = Theme.of(context).colorScheme;
 		return Container(
 			height: 36,
 			padding: const EdgeInsets.symmetric(horizontal: 10),
 			decoration: BoxDecoration(
-				color: const Color(0xFFE6E7EC),
+				color: scheme.surfaceContainerHighest,
 				borderRadius: BorderRadius.circular(12),
 			),
 			child: DropdownButtonHideUnderline(
@@ -200,7 +203,7 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 					value: value,
 					isExpanded: true,
 					icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-					style: const TextStyle(color: Color(0xFF394057), fontSize: 11),
+					style: TextStyle(color: scheme.onSurface, fontSize: 11),
 					items: items.entries
 							.map((entry) => DropdownMenuItem<T>(value: entry.key, child: Text(entry.value)))
 							.toList(),
@@ -213,30 +216,33 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 	}
 
 	Widget _buildStatCard(String value, String label, Color accent) {
+		final scheme = Theme.of(context).colorScheme;
 		return Container(
 			padding: const EdgeInsets.symmetric(vertical: 11),
 			decoration: BoxDecoration(
-				color: const Color(0xFFEFF0F6),
+				color: scheme.surfaceContainer,
 				borderRadius: BorderRadius.circular(11),
 			),
 			child: Column(
 				children: [
 					Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 26, color: accent)),
 					const SizedBox(height: 2),
-					Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF7A8090))),
+					Text(label, style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
 				],
 			),
 		);
 	}
 
 	Widget _buildHistoryRideCard(Ride ride, bool isDriver) {
+		final isPassenger = !isDriver && ride.currentUserJoined;
 		final distance = ride.distanceKm ?? 0;
 		final primary = Theme.of(context).colorScheme.primary;
+		final scheme = Theme.of(context).colorScheme;
 		return Container(
 			decoration: BoxDecoration(
-				color: Colors.white,
+				color: scheme.surface,
 				borderRadius: BorderRadius.circular(16),
-				border: Border.all(color: const Color(0xFFE5E7EF)),
+				border: Border.all(color: scheme.outlineVariant),
 			),
 			child: Padding(
 				padding: const EdgeInsets.all(12),
@@ -248,22 +254,34 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 								Container(
 									padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
 									decoration: BoxDecoration(
-										color: isDriver ? const Color(0xFFE7E9FF) : const Color(0xFFE8F5E9),
+										color: isDriver
+											? scheme.primaryContainer
+											: isPassenger
+												? scheme.tertiaryContainer
+												: scheme.surfaceContainerHighest,
 										borderRadius: BorderRadius.circular(999),
 									),
 									child: Text(
-										isDriver ? 'Driver' : 'Passenger',
+										isDriver ? 'Fahrer' : isPassenger ? 'Mitfahrer' : 'Gruppenfahrt',
 										style: TextStyle(
-											color: isDriver ? primary : const Color(0xFF2E7D32),
+											color: isDriver ? primary : isPassenger ? scheme.tertiary : scheme.onSurfaceVariant,
 											fontSize: 11,
 											fontWeight: FontWeight.w700,
 										),
 									),
 								),
 								const Spacer(),
+								if (ride.groupName != null && ride.groupName!.isNotEmpty)
+									Padding(
+										padding: const EdgeInsets.only(right: 8),
+										child: Text(
+											ride.groupName!,
+											style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+										),
+									),
 								Text(
-									'Distance: ${distance.toStringAsFixed(1)} km',
-									style: const TextStyle(fontSize: 11, color: Color(0xFF7A8090)),
+									'${distance.toStringAsFixed(1)} km',
+									style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
 								),
 							],
 						),
