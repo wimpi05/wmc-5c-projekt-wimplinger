@@ -392,8 +392,13 @@ app.post('/rides', (req: AuthRequest, res: Response) => {
 
   const driverUserId = req.userId ?? Number(driver_user_id);
   const groupId = Number(group_id);
+  const distanceKm = Number(distance_km);
   if (!driverUserId || !groupId || !start_name || !end_name || !depart_time || !seats_total) {
     res.status(400).json({ error: 'Pflichtfelder fehlen.' });
+    return;
+  }
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0) {
+    res.status(400).json({ error: 'distance_km muss größer als 0 sein.' });
     return;
   }
 
@@ -411,7 +416,7 @@ app.post('/rides', (req: AuthRequest, res: Response) => {
       }
 
       const sql = `INSERT INTO rides (driver_user_id, group_id, start_name, end_name, depart_time, seats_total, price_per_seat, distance_km, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-      db.run(sql, [driverUserId, groupId, start_name, end_name, depart_time, seats_total, price_per_seat, distance_km, note], function (this: sqlite3.RunResult, err: DbError) {
+      db.run(sql, [driverUserId, groupId, start_name, end_name, depart_time, seats_total, price_per_seat, distanceKm, note], function (this: sqlite3.RunResult, err: DbError) {
         if (err) return res.status(500).json({ error: err.message });
         res.status(201).json({ id: this.lastID });
       });
@@ -428,18 +433,92 @@ app.post('/rides/:id/join', (req: AuthRequest, res: Response) => {
     return;
   }
 
-  const sql = `INSERT INTO ride_passengers (ride_id, user_id, status) VALUES (?, ?, 'joined')`;
-  db.run(sql, [rideId, userId], function (this: sqlite3.RunResult, err: DbError) {
-    if (err) {
-      return res.status(500).json({ error: 'Beitritt fehlgeschlagen oder bereits angemeldet.' });
-    }
-    res.status(201).json({
-      passenger_id: this.lastID,
-      ride_id: rideId,
-      user_id: userId,
-      status: 'joined',
-    });
-  });
+  db.get(
+    `
+      SELECT
+        r.id,
+        r.driver_user_id,
+        r.seats_total,
+        (SELECT COUNT(*) FROM ride_passengers rp WHERE rp.ride_id = r.id AND rp.status = 'joined') AS seats_occupied
+      FROM rides r
+      WHERE r.id = ?
+    `,
+    [rideId],
+    (rideErr: DbError, rideRow: any) => {
+      if (rideErr) {
+        res.status(500).json({ error: rideErr.message });
+        return;
+      }
+      if (!rideRow) {
+        res.status(404).json({ error: 'Fahrt nicht gefunden.' });
+        return;
+      }
+      if (Number(rideRow.driver_user_id) === userId) {
+        res.status(400).json({ error: 'Als Fahrer kannst du deiner eigenen Fahrt nicht beitreten.' });
+        return;
+      }
+      if (Number(rideRow.seats_occupied) >= Number(rideRow.seats_total)) {
+        res.status(409).json({ error: 'Fahrt ist bereits voll.' });
+        return;
+      }
+
+      db.get(
+        `SELECT id, status FROM ride_passengers WHERE ride_id = ? AND user_id = ?`,
+        [rideId, userId],
+        (passengerErr: DbError, passengerRow: any) => {
+          if (passengerErr) {
+            res.status(500).json({ error: passengerErr.message });
+            return;
+          }
+
+          if (!passengerRow) {
+            const insertSql = `INSERT INTO ride_passengers (ride_id, user_id, status) VALUES (?, ?, 'joined')`;
+            db.run(insertSql, [rideId, userId], function (this: sqlite3.RunResult, insertErr: DbError) {
+              if (insertErr) {
+                res.status(500).json({ error: 'Beitritt fehlgeschlagen.' });
+                return;
+              }
+              res.status(201).json({
+                passenger_id: this.lastID,
+                ride_id: rideId,
+                user_id: userId,
+                status: 'joined',
+              });
+            });
+            return;
+          }
+
+          if (passengerRow.status === 'joined') {
+            res.status(200).json({
+              passenger_id: passengerRow.id,
+              ride_id: rideId,
+              user_id: userId,
+              status: 'joined',
+            });
+            return;
+          }
+
+          db.run(
+            `UPDATE ride_passengers SET status = 'joined' WHERE id = ?`,
+            [passengerRow.id],
+            (updateErr: DbError) => {
+              if (updateErr) {
+                res.status(500).json({ error: updateErr.message });
+                return;
+              }
+
+              res.status(200).json({
+                passenger_id: passengerRow.id,
+                ride_id: rideId,
+                user_id: userId,
+                status: 'joined',
+              });
+            },
+          );
+        },
+      );
+    },
+  );
 });
 
 app.post('/rides/:id/cancel', (req: AuthRequest, res: Response) => {
@@ -451,13 +530,159 @@ app.post('/rides/:id/cancel', (req: AuthRequest, res: Response) => {
     return;
   }
 
-  const sql = `UPDATE ride_passengers SET status = 'cancelled' WHERE ride_id = ? AND user_id = ?`;
+  const sql = `UPDATE ride_passengers SET status = 'cancelled' WHERE ride_id = ? AND user_id = ? AND status = 'joined'`;
   db.run(sql, [rideId, userId], function (this: sqlite3.RunResult, err: DbError) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) {
-      return res.status(404).json({ error: 'Keine aktive Anmeldung gefunden.' });
+      return res.status(200).json({ message: 'Bereits verlassen.', status: 'cancelled' });
     }
     res.json({ message: 'Cancelled successfully', status: 'cancelled' });
+  });
+});
+
+app.patch('/rides/:id', requireAuth, (req: AuthRequest, res: Response) => {
+  const rideId = Number(req.params.id);
+  const userId = req.userId as number;
+
+  if (!rideId) {
+    res.status(400).json({ error: 'Ungültige Ride-ID.' });
+    return;
+  }
+
+  type UpdateRideBody = {
+    group_id?: number;
+    start_name?: string;
+    end_name?: string;
+    depart_time?: string;
+    seats_total?: number;
+    price_per_seat?: number | null;
+    distance_km?: number | null;
+    note?: string | null;
+  };
+
+  const body = req.body as UpdateRideBody;
+  const groupId = Number(body.group_id);
+  const startName = (body.start_name ?? '').trim();
+  const endName = (body.end_name ?? '').trim();
+  const departTime = (body.depart_time ?? '').trim();
+  const seatsTotal = Number(body.seats_total);
+  const distanceKm = Number(body.distance_km);
+
+  if (!groupId || !startName || !endName || !departTime || !seatsTotal || seatsTotal <= 0) {
+    res.status(400).json({ error: 'Pflichtfelder fehlen oder sind ungültig.' });
+    return;
+  }
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0) {
+    res.status(400).json({ error: 'distance_km muss größer als 0 sein.' });
+    return;
+  }
+
+  db.get(`SELECT id, driver_user_id FROM rides WHERE id = ?`, [rideId], (rideErr: DbError, rideRow: any) => {
+    if (rideErr) {
+      res.status(500).json({ error: rideErr.message });
+      return;
+    }
+    if (!rideRow) {
+      res.status(404).json({ error: 'Fahrt nicht gefunden.' });
+      return;
+    }
+    if (Number(rideRow.driver_user_id) !== userId) {
+      res.status(403).json({ error: 'Nur der Fahrer darf diese Fahrt bearbeiten.' });
+      return;
+    }
+
+    db.get(
+      `SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?`,
+      [groupId, userId],
+      (membershipErr: DbError, membershipRow: DbRow) => {
+        if (membershipErr) {
+          res.status(500).json({ error: membershipErr.message });
+          return;
+        }
+        if (!membershipRow) {
+          res.status(403).json({ error: 'Du kannst nur Fahrten in deinen Gruppen bearbeiten.' });
+          return;
+        }
+
+        const sql = `
+          UPDATE rides
+          SET group_id = ?,
+              start_name = ?,
+              end_name = ?,
+              depart_time = ?,
+              seats_total = ?,
+              price_per_seat = ?,
+              distance_km = ?,
+              note = ?
+          WHERE id = ?
+        `;
+
+        db.run(
+          sql,
+          [
+            groupId,
+            startName,
+            endName,
+            departTime,
+            seatsTotal,
+            body.price_per_seat ?? null,
+            distanceKm,
+            body.note ?? null,
+            rideId,
+          ],
+          function (this: sqlite3.RunResult, updateErr: DbError) {
+            if (updateErr) {
+              res.status(500).json({ error: updateErr.message });
+              return;
+            }
+            if (this.changes === 0) {
+              res.status(404).json({ error: 'Fahrt nicht gefunden.' });
+              return;
+            }
+
+            res.json({ updated: true, ride_id: rideId });
+          },
+        );
+      },
+    );
+  });
+});
+
+app.delete('/rides/:id', requireAuth, (req: AuthRequest, res: Response) => {
+  const rideId = Number(req.params.id);
+  const userId = req.userId as number;
+
+  if (!rideId) {
+    res.status(400).json({ error: 'Ungültige Ride-ID.' });
+    return;
+  }
+
+  db.get(`SELECT id, driver_user_id FROM rides WHERE id = ?`, [rideId], (rideErr: DbError, rideRow: any) => {
+    if (rideErr) {
+      res.status(500).json({ error: rideErr.message });
+      return;
+    }
+    if (!rideRow) {
+      res.status(404).json({ error: 'Fahrt nicht gefunden.' });
+      return;
+    }
+    if (Number(rideRow.driver_user_id) !== userId) {
+      res.status(403).json({ error: 'Nur der Fahrer darf diese Fahrt löschen.' });
+      return;
+    }
+
+    db.run(`DELETE FROM rides WHERE id = ?`, [rideId], function (this: sqlite3.RunResult, deleteErr: DbError) {
+      if (deleteErr) {
+        res.status(500).json({ error: deleteErr.message });
+        return;
+      }
+      if (this.changes === 0) {
+        res.status(404).json({ error: 'Fahrt nicht gefunden.' });
+        return;
+      }
+
+      res.json({ deleted: true, ride_id: rideId });
+    });
   });
 });
 

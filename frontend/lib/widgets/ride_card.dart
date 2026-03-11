@@ -6,6 +6,7 @@ class RideCard extends StatelessWidget {
   final Ride ride;
   final int? currentUserId;
   final VoidCallback? onJoin;
+  final VoidCallback? onLeave;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -14,6 +15,7 @@ class RideCard extends StatelessWidget {
     required this.ride,
     this.currentUserId,
     this.onJoin,
+    this.onLeave,
     this.onEdit,
     this.onDelete,
   });
@@ -162,12 +164,15 @@ class RideCard extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: (ride.isFull || ride.currentUserJoined) ? null : onJoin,
-        icon: const Icon(Icons.person_add_alt_outlined, size: 18),
-        label: Text(ride.isFull ? 'Voll' : ride.currentUserJoined ? 'Beigetreten' : 'Fahrt beitreten'),
+        onPressed: ride.currentUserJoined ? onLeave : (ride.isFull ? null : onJoin),
+        icon: Icon(
+          ride.currentUserJoined ? Icons.exit_to_app : Icons.person_add_alt_outlined,
+          size: 18,
+        ),
+        label: Text(ride.isFull ? 'Voll' : ride.currentUserJoined ? 'Fahrt verlassen' : 'Fahrt beitreten'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: scheme.primary,
-          foregroundColor: scheme.onPrimary,
+          backgroundColor: ride.currentUserJoined ? scheme.errorContainer : scheme.primary,
+          foregroundColor: ride.currentUserJoined ? scheme.error : scheme.onPrimary,
           disabledBackgroundColor: Colors.grey[300],
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),

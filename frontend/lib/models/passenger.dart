@@ -16,13 +16,17 @@ class Passenger {
   });
 
   factory Passenger.fromJson(Map<String, dynamic> json) {
+    final joinedRaw = json['joined_at']?.toString();
+
     return Passenger(
-      id: json['passenger_id'],
-      rideId: json['ride_id'],
-      userId: json['user_id'],
+      id: (json['passenger_id'] ?? json['id']) as int,
+      rideId: json['ride_id'] as int,
+      userId: json['user_id'] as int,
       username: json['username'] ?? 'Unknown',
       status: json['status'] ?? 'joined',
-      joinedAt: DateTime.parse(json['joined_at']),
+      joinedAt: (joinedRaw == null || joinedRaw.isEmpty)
+          ? DateTime.now()
+          : DateTime.parse(joinedRaw),
     );
   }
 

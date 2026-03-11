@@ -13,7 +13,9 @@ const double _kUnifiedHeaderTitleSubtitleGap = 4;
 const double _kUnifiedHeaderLeftInset = 24;
 
 class CreateRideScreen extends StatefulWidget {
-	const CreateRideScreen({super.key});
+	final Ride? initialRide;
+
+	const CreateRideScreen({super.key, this.initialRide});
 
 	@override
 	State<CreateRideScreen> createState() => _CreateRideScreenState();
@@ -26,6 +28,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 	final _dateController = TextEditingController();
 	final _timeController = TextEditingController();
 	final _seatsController = TextEditingController(text: '4');
+	final _distanceController = TextEditingController();
 	final _priceController = TextEditingController();
 	final _noteController = TextEditingController();
 	final ApiService _apiService = ApiService();
@@ -37,9 +40,27 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 	List<Group> _groups = [];
 	int? _selectedGroupId;
 
+	bool get _isEditMode => widget.initialRide != null;
+
 	@override
 	void initState() {
 		super.initState();
+		if (widget.initialRide != null) {
+			final ride = widget.initialRide!;
+			_startController.text = ride.startName;
+			_destinationController.text = ride.endName;
+			_selectedDate = ride.departTime;
+			_selectedTime = TimeOfDay(hour: ride.departTime.hour, minute: ride.departTime.minute);
+			_dateController.text =
+					'${ride.departTime.day.toString().padLeft(2, '0')}.${ride.departTime.month.toString().padLeft(2, '0')}.${ride.departTime.year}';
+			_timeController.text =
+					'${ride.departTime.hour.toString().padLeft(2, '0')}:${ride.departTime.minute.toString().padLeft(2, '0')}';
+			_seatsController.text = ride.seatsTotal.toString();
+			_distanceController.text = ride.distanceKm?.toString() ?? '';
+			_priceController.text = ride.pricePerSeat?.toString() ?? '';
+			_noteController.text = ride.note ?? '';
+			_selectedGroupId = ride.groupId;
+		}
 		WidgetsBinding.instance.addPostFrameCallback((_) {
 			_loadGroups();
 		});
@@ -52,6 +73,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		_dateController.dispose();
 		_timeController.dispose();
 		_seatsController.dispose();
+		_distanceController.dispose();
 		_priceController.dispose();
 		_noteController.dispose();
 		super.dispose();
@@ -76,7 +98,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 						height: topInset + _kUnifiedHeaderHeight,
 						padding: EdgeInsets.only(top: topInset),
 						decoration: BoxDecoration(color: primary),
-						child: const Padding(
+						child: Padding(
 							padding: EdgeInsets.fromLTRB(_kUnifiedHeaderLeftInset, 0, 16, 0),
 							child: Align(
 								alignment: Alignment.centerLeft,
@@ -84,9 +106,9 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 									crossAxisAlignment: CrossAxisAlignment.start,
 									mainAxisAlignment: MainAxisAlignment.center,
 									children: [
-										Text('Fahrt erstellen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: _kUnifiedHeaderTitleSize)),
+										Text(_isEditMode ? 'Fahrt bearbeiten' : 'Fahrt erstellen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: _kUnifiedHeaderTitleSize)),
 										SizedBox(height: _kUnifiedHeaderTitleSubtitleGap),
-										Text('Teile deine Strecke', style: TextStyle(color: Colors.white70, fontSize: _kUnifiedHeaderSubtitleSize)),
+										Text(_isEditMode ? 'Passe deine Strecke an' : 'Teile deine Strecke', style: TextStyle(color: Colors.white70, fontSize: _kUnifiedHeaderSubtitleSize)),
 									],
 								),
 							),
@@ -176,6 +198,20 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 									},
 								),
 								const SizedBox(height: 12),
+								_buildSectionLabel(Icons.straighten_outlined, 'Kilometer (Pflichtfeld)'),
+								_buildTextField(
+									controller: _distanceController,
+									hint: 'z.B. 12.5',
+									keyboardType: const TextInputType.numberWithOptions(decimal: true),
+									validator: (value) {
+										final distance = double.tryParse((value ?? '').trim().replaceAll(',', '.'));
+										if (distance == null || distance <= 0) {
+											return 'Bitte gültige Kilometer > 0 eingeben.';
+										}
+										return null;
+									},
+								),
+								const SizedBox(height: 12),
 								_buildSectionLabel(Icons.euro_outlined, 'Preis pro Platz (optional)'),
 								_buildTextField(
 									controller: _priceController,
@@ -214,7 +250,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 														height: 20,
 														child: CircularProgressIndicator(strokeWidth: 2),
 													)
-												: const Text('Fahrt veröffentlichen', style: TextStyle(fontWeight: FontWeight.w700)),
+												: Text(_isEditMode ? 'Änderungen speichern' : 'Fahrt veröffentlichen', style: const TextStyle(fontWeight: FontWeight.w700)),
 									),
 								),
 								const SizedBox(height: 10),
@@ -468,6 +504,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		final time = _selectedTime!;
 		final departTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
 		final seats = int.parse(_seatsController.text.trim());
+		final distance = double.parse(_distanceController.text.trim().replaceAll(',', '.'));
 		final priceText = _priceController.text.trim();
 		final noteText = _noteController.text.trim();
 		final selectedGroup = _groups.cast<Group?>().firstWhere(
@@ -476,7 +513,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 		);
 
 		final newRide = Ride(
-			id: 0,
+			id: widget.initialRide?.id ?? 0,
 			driverUserId: user.id!,
 			groupId: _selectedGroupId,
 			groupName: selectedGroup?.name,
@@ -486,19 +523,22 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 			departTime: departTime,
 			seatsTotal: seats,
 			seatsOccupied: 0,
+			distanceKm: distance,
 			pricePerSeat: priceText.isEmpty ? null : double.tryParse(priceText.replaceAll(',', '.')),
 			note: noteText.isEmpty ? null : noteText,
 			createdAt: DateTime.now(),
 		);
 
 		setState(() => _isSubmitting = true);
-		final ok = await context.read<RideProvider>().addRide(newRide);
+		final ok = _isEditMode
+				? await context.read<RideProvider>().updateRide(rideId: widget.initialRide!.id, ride: newRide)
+				: await context.read<RideProvider>().addRide(newRide);
 		if (!mounted) return;
 		setState(() => _isSubmitting = false);
 
 		if (ok) {
 			ScaffoldMessenger.of(context).showSnackBar(
-				const SnackBar(content: Text('Fahrt erfolgreich erstellt.')),
+				SnackBar(content: Text(_isEditMode ? 'Fahrt erfolgreich bearbeitet.' : 'Fahrt erfolgreich erstellt.')),
 			);
 			Navigator.of(context).pop(true);
 			return;

@@ -264,6 +264,37 @@ class ApiService {
     }
   }
 
+  Future<void> updateRide({required int rideId, required Ride ride}) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/rides/$rideId'),
+        headers: _headers(withAuth: true),
+        body: json.encode(ride.toJson()),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(_extractError(response, 'Fahrt konnte nicht bearbeitet werden'));
+      }
+    } catch (e) {
+      throw Exception('Error updating ride: $e');
+    }
+  }
+
+  Future<void> deleteRide({required int rideId}) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/rides/$rideId'),
+        headers: _headers(withAuth: true),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(_extractError(response, 'Fahrt konnte nicht gelöscht werden'));
+      }
+    } catch (e) {
+      throw Exception('Error deleting ride: $e');
+    }
+  }
+
   // ------------------------
   // Passenger Endpoints
   // ------------------------
@@ -279,7 +310,7 @@ class ApiService {
         body: json.encode({'user_id': userId}),
       );
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         return Passenger.fromJson(json.decode(response.body));
       }
       throw Exception('Failed to join ride: ${response.body}');

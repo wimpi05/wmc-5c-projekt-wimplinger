@@ -63,6 +63,42 @@ class RideProvider with ChangeNotifier {
     }
   }
 
+  Future<bool> updateRide({required int rideId, required Ride ride}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _apiService.updateRide(rideId: rideId, ride: ride);
+      await fetchRides();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> deleteRide(int rideId) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _apiService.deleteRide(rideId: rideId);
+      await fetchRides();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // Einer Fahrt beitreten (Konzept Punkt 5.2)
   Future<bool> joinRide(int rideId, int userId) async {
     try {

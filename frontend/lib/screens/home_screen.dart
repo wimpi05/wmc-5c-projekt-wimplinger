@@ -4,6 +4,7 @@ import 'create_ride_screen.dart';
 import 'ride_history_screen.dart';
 import 'settings_screen.dart';
 import 'stats_screen.dart';
+import '../models/ride.dart';
 import '../providers/ride_provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/ride_card.dart';
@@ -48,7 +49,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: isHome ? _buildHomeBody() : _buildSectionPage(),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final slide = Tween<Offset>(
+            begin: const Offset(0.04, 0),
+            end: Offset.zero,
+          ).animate(animation);
+
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: slide, child: child),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<String>(isHome ? 'home' : 'section_$_selectedNavIndex'),
+          child: isHome ? _buildHomeBody() : _buildSectionPage(),
+        ),
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openCreateRide(context),
         backgroundColor: scheme.secondaryContainer,
@@ -304,36 +324,98 @@ class RideListView extends StatelessWidget {
         itemBuilder: (context, index) {
           final ride = rides[index];
           final bool isDriver = currentUserId != null && ride.driverUserId == currentUserId;
+          final itemDurationMs = (220 + (index * 45)).clamp(220, 620);
 
-          return RideCard(
-            ride: ride,
-            currentUserId: currentUserId,
-            onJoin: (ride.isFull || currentUserId == null)
-                ? null
-                : () async {
-                    final ok = await context.read<RideProvider>().joinRide(ride.id, currentUserId);
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(ok ? 'Fahrt erfolgreich beigetreten.' : 'Beitritt zur Fahrt fehlgeschlagen.')),
-                    );
-                  },
-            onEdit: isDriver
-                ? () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Der Bearbeiten-Flow ist als naechstes dran.')),
-                    );
-                  }
-                : null,
-            onDelete: isDriver
-                ? () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Der Loeschen-Flow ist als naechstes dran.')),
-                    );
-                  }
-                : null,
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: Duration(milliseconds: itemDurationMs),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - value) * 20),
+                  child: child,
+                ),
+              );
+            },
+            child: RideCard(
+              ride: ride,
+              currentUserId: currentUserId,
+                onJoin: (ride.isFull || currentUserId == null || isDriver)
+                  ? null
+                  : () async {
+                      final ok = await context.read<RideProvider>().joinRide(ride.id, currentUserId);
+                      if (!context.mounted) return;
+                      final reason = context.read<RideProvider>().error?.replaceFirst('Exception: ', '');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(ok ? 'Fahrt erfolgreich beigetreten.' : (reason ?? 'Beitritt zur Fahrt fehlgeschlagen.'))),
+                      );
+                    },
+              onLeave: (!ride.currentUserJoined || currentUserId == null || isDriver)
+                  ? null
+                  : () async {
+                      final ok = await context.read<RideProvider>().cancelRide(ride.id, currentUserId);
+                      if (!context.mounted) return;
+                      final reason = context.read<RideProvider>().error?.replaceFirst('Exception: ', '');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(ok ? 'Du hast die Fahrt verlassen.' : (reason ?? 'Verlassen der Fahrt fehlgeschlagen.'))),
+                      );
+                    },
+              onEdit: isDriver
+                  ? () => _openEditRide(context, ride)
+                  : null,
+              onDelete: isDriver
+                  ? () => _confirmDeleteRide(context, ride)
+                  : null,
+            ),
           );
         },
       ),
     );
   }
+}
+
+Future<void> _openEditRide(BuildContext context, Ride ride) async {
+  final result = await Navigator.of(context).push<dynamic>(
+    MaterialPageRoute(builder: (_) => CreateRideScreen(initialRide: ride)),
+  );
+
+  if (!context.mounted) return;
+  if (result == true) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fahrt wurde erfolgreich aktualisiert.')),
+    );
+  }
+}
+
+Future<void> _confirmDeleteRide(BuildContext context, Ride ride) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Fahrt löschen?'),
+      content: Text('Möchtest du die Fahrt von ${ride.startName} nach ${ride.endName} wirklich löschen?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Abbrechen'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Löschen'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true || !context.mounted) return;
+
+  final ok = await context.read<RideProvider>().deleteRide(ride.id);
+  if (!context.mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(ok ? 'Fahrt gelöscht.' : 'Löschen fehlgeschlagen.'),
+    ),
+  );
 }
