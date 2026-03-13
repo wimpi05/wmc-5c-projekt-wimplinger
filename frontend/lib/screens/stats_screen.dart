@@ -28,6 +28,7 @@ class _StatsScreenState extends State<StatsScreen> {
   double _kmShared = 0;
   double _co2Saved = 0;
   List<double> _weekKm = List.filled(7, 0);
+  List<String> _weekLabels = const ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
   @override
   void initState() {
@@ -53,11 +54,16 @@ class _StatsScreenState extends State<StatsScreen> {
       }
 
       final now = DateTime.now();
+      const shortWeekdays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
       final weekValues = List.generate(7, (index) {
         final day = now.subtract(Duration(days: 6 - index));
         final key =
             '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
         return weekMap[key] ?? 0;
+      });
+      final weekLabels = List.generate(7, (index) {
+        final day = now.subtract(Duration(days: 6 - index));
+        return shortWeekdays[day.weekday - 1];
       });
 
       if (!mounted) return;
@@ -68,6 +74,7 @@ class _StatsScreenState extends State<StatsScreen> {
         _kmShared = (summary['km_shared'] as num?)?.toDouble() ?? 0;
         _co2Saved = (summary['co2_saved'] as num?)?.toDouble() ?? 0;
         _weekKm = weekValues;
+        _weekLabels = weekLabels;
         _loading = false;
       });
     } catch (e) {
@@ -83,7 +90,6 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
     final scheme = Theme.of(context).colorScheme;
-    const weekLabels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
     return Column(
       children: [
@@ -142,7 +148,7 @@ class _StatsScreenState extends State<StatsScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          _buildWeeklyChartCard(weekLabels, _weekKm, scheme),
+                          _buildWeeklyChartCard(_weekLabels, _weekKm, scheme),
                           const SizedBox(height: 16),
                           _buildBottomStatsRow(_totalRides, _asDriver, _asPassenger, scheme),
                         ],
@@ -278,7 +284,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 Icon(Icons.show_chart_rounded, color: scheme.primary, size: 18),
                 const SizedBox(width: 8),
                 Text(
-                  'Kilometer Diese Woche',
+                  'Kilometer Letzte 7 Tage',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,

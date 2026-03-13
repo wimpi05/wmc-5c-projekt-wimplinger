@@ -25,8 +25,31 @@ class RideHistoryScreen extends StatefulWidget {
 }
 
 class _RideHistoryScreenState extends State<RideHistoryScreen> {
-	HistoryPeriod _selectedPeriod = HistoryPeriod.last30;
+	HistoryPeriod _selectedPeriod = HistoryPeriod.all;
 	HistoryRole _selectedRole = HistoryRole.all;
+	int? _lastLoadedUserId;
+	bool _initialFetchScheduled = false;
+
+	@override
+	void didChangeDependencies() {
+		super.didChangeDependencies();
+		final currentUserId = context.read<UserProvider>().currentUser?.id;
+		if (!_initialFetchScheduled) {
+			_initialFetchScheduled = true;
+			WidgetsBinding.instance.addPostFrameCallback((_) {
+				if (!mounted) return;
+				context.read<RideProvider>().fetchRides();
+			});
+		}
+
+		if (currentUserId != null && _lastLoadedUserId != currentUserId) {
+			_lastLoadedUserId = currentUserId;
+			WidgetsBinding.instance.addPostFrameCallback((_) {
+				if (!mounted) return;
+				context.read<RideProvider>().fetchRides();
+			});
+		}
+	}
 
 	@override
 	Widget build(BuildContext context) {
@@ -88,12 +111,12 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 								mainAxisAlignment: MainAxisAlignment.center,
 								children: [
 									Text(
-										'Ride History',
+										'Ride Verlauf',
 										style: TextStyle(fontWeight: FontWeight.w700, fontSize: _kUnifiedHeaderTitleSize, color: Colors.white),
 									),
 									SizedBox(height: _kUnifiedHeaderTitleSubtitleGap),
 									Text(
-										'Your past commutes',
+										'Die letzten Fahrten in deinen Gruppen',
 										style: TextStyle(fontSize: _kUnifiedHeaderSubtitleSize, color: Colors.white70),
 									),
 								],

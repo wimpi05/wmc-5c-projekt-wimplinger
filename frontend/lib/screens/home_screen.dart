@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(icon: Icons.home_outlined, label: 'Home', index: 0),
+                _buildNavItem(icon: Icons.home_outlined, label: 'Übersicht', index: 0),
                 _buildNavItem(icon: Icons.history, label: 'Verlauf', index: 1),
                 const SizedBox(width: 40),
                 _buildNavItem(icon: Icons.bar_chart, label: 'Statistik', index: 3),
@@ -135,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ),
                   SizedBox(height: _kUnifiedHeaderTitleSubtitleGap),
                   Text(
-                    'Dein Dashboard fuer Fahrgemeinschaften',
+                    'Dein Dashboard für Fahrgemeinschaften',
                     style: TextStyle(fontSize: _kUnifiedHeaderSubtitleSize, color: Colors.white70),
                   ),
                 ],

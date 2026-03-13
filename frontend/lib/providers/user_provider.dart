@@ -53,9 +53,7 @@ class UserProvider with ChangeNotifier {
         _currentUser = await _apiService.getMe();
         _authStatus = AuthStatus.authenticated;
         return;
-      } catch (_) {
-        // Access token may be expired. Try refresh once.
-      }
+      } catch (_) {}
 
       await _apiService.refreshAccessToken();
       _currentUser = await _apiService.getMe();
@@ -158,8 +156,6 @@ class UserProvider with ChangeNotifier {
     try {
       return await SharedPreferences.getInstance();
     } on MissingPluginException {
-      // During hot-reload directly after adding a plugin, native registration
-      // can be temporarily unavailable until a full restart.
       return null;
     }
   }

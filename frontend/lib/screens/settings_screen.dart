@@ -336,6 +336,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 	Widget _buildGroupCard(Group group) {
 		final scheme = Theme.of(context).colorScheme;
+		final memberLabel = group.membersCount == 1 ? 'Mitglied' : 'Mitglieder';
 		return Container(
 			margin: const EdgeInsets.only(bottom: 10),
 			padding: const EdgeInsets.all(12),
@@ -362,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 							children: [
 								Text(group.name, style: TextStyle(fontSize: 16, color: scheme.onSurface, fontWeight: FontWeight.w600)),
 								const SizedBox(height: 2),
-								Text('${group.membersCount} Mitglieder - Code: ${group.code}', style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
+								Text('${group.membersCount} $memberLabel - Code: ${group.code}', style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant)),
 								if (group.isOwner)
 									Padding(
 										padding: EdgeInsets.only(top: 2),

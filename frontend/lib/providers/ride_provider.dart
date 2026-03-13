@@ -13,20 +13,17 @@ class RideProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Filter für die Dashboard-Tabs (Konzept Punkt 4.1)
   List<Ride> get todayRides {
     return _rides.where((ride) => ride.isToday).toList();
   }
 
   List<Ride> get upcomingRides {
-    // Fahrten, die nicht heute sind und in der Zukunft liegen
     final now = DateTime.now();
     return _rides
         .where((ride) => !ride.isToday && ride.departTime.isAfter(now))
         .toList();
   }
 
-  // Alle Fahrten vom Server laden
   Future<void> fetchRides() async {
     _isLoading = true;
     _error = null;
@@ -34,7 +31,6 @@ class RideProvider with ChangeNotifier {
 
     try {
       _rides = await _apiService.getRides();
-      // Sortierung: Baldigste Fahrt zuerst
       _rides.sort((a, b) => a.departTime.compareTo(b.departTime));
     } catch (e) {
       _error = e.toString();
@@ -44,7 +40,6 @@ class RideProvider with ChangeNotifier {
     }
   }
 
-  // Neue Fahrt erstellen (Konzept Punkt 5.1)
   Future<bool> addRide(Ride ride) async {
     _isLoading = true;
     _error = null;
@@ -52,7 +47,7 @@ class RideProvider with ChangeNotifier {
 
     try {
       await _apiService.createRide(ride);
-      await fetchRides(); // Holt die saubere Liste inkl. driver_username vom Server
+      await fetchRides();
       return true;
     } catch (e) {
       _error = e.toString();
@@ -99,7 +94,6 @@ class RideProvider with ChangeNotifier {
     }
   }
 
-  // Einer Fahrt beitreten (Konzept Punkt 5.2)
   Future<bool> joinRide(int rideId, int userId) async {
     try {
       await _apiService.joinRide(rideId: rideId, userId: userId);
@@ -113,7 +107,6 @@ class RideProvider with ChangeNotifier {
     }
   }
 
-  // Fahrt absagen (Konzept Punkt 5.3)
   Future<bool> cancelRide(int rideId, int userId) async {
     try {
       await _apiService.cancelRide(rideId: rideId, userId: userId);

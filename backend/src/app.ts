@@ -1,5 +1,4 @@
 import express, { Request, Response, NextFunction } from 'express';
-import bodyParser from 'body-parser';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -14,11 +13,9 @@ const port = 3000;
 
 const jwtSecret = process.env.JWT_SECRET ?? 'dev-jwt-secret-change-me';
 const accessTokenExpiresIn = '15m';
-const refreshTokenTtlMs = 1000 * 60 * 60 * 24 * 14; // 14 days
+const refreshTokenTtlMs = 1000 * 60 * 60 * 24 * 14;
 
 app.use(express.json());
-app.use(bodyParser.json());
-app.use(express.urlencoded({ extended: true }));
 
 initDB();
 
@@ -102,9 +99,7 @@ const attachOptionalUser = (req: AuthRequest, _res: Response, next: NextFunction
     if (payload.type === 'access' && Number.isFinite(parsed)) {
       req.userId = parsed;
     }
-  } catch {
-    // optional auth: ignore invalid tokens here
-  }
+  } catch {}
 
   next();
 };
@@ -134,10 +129,10 @@ const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
 const resolveUserId = (req: AuthRequest): number | null => {
   if (req.userId != null) return req.userId;
 
-  const bodyUser = Number((req.body as { user_id?: number }).user_id);
+  const bodyUser = Number((req.body as { user_id?: number } | undefined)?.user_id);
   if (Number.isFinite(bodyUser) && bodyUser > 0) return bodyUser;
 
-  const queryUser = Number((req.query as { user_id?: string }).user_id);
+  const queryUser = Number((req.query as { user_id?: string } | undefined)?.user_id);
   if (Number.isFinite(queryUser) && queryUser > 0) return queryUser;
 
   return null;
@@ -145,7 +140,6 @@ const resolveUserId = (req: AuthRequest): number | null => {
 
 app.use(attachOptionalUser);
 
-// --- AUTH ENDPOINTS ---
 app.post('/auth/register', async (req: Request, res: Response): Promise<void> => {
   const { email, password, name } = req.body as { email?: string; password?: string; name?: string };
   const safeEmail = (email ?? '').trim().toLowerCase();
@@ -323,7 +317,6 @@ app.get('/auth/me', requireAuth, (req: AuthRequest, res: Response): void => {
   });
 });
 
-// --- RIDE ENDPOINTS ---
 app.get('/rides', (req: AuthRequest, res: Response) => {
   const sql = `
     SELECT DISTINCT
@@ -350,40 +343,6 @@ app.get('/rides', (req: AuthRequest, res: Response) => {
   db.all(sql, [req.userId ?? null, req.userId ?? null, req.userId ?? null, req.userId ?? null], (err: DbError, rows: DbRows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
-  });
-});
-
-app.get('/rides/:id', (req: AuthRequest, res: Response) => {
-  const rideId = Number(req.params.id);
-  if (!rideId) {
-    res.status(400).json({ error: 'Ungültige Ride-ID.' });
-    return;
-  }
-
-  const sql = `
-    SELECT
-      r.*,
-      g.name as group_name,
-      u.name as driver_username,
-      (SELECT COUNT(*) FROM ride_passengers rp WHERE rp.ride_id = r.id AND rp.status = 'joined') as seats_occupied,
-      CASE
-        WHEN ? IS NOT NULL AND EXISTS (
-          SELECT 1
-          FROM ride_passengers me
-          WHERE me.ride_id = r.id AND me.user_id = ? AND me.status = 'joined'
-        ) THEN 1
-        ELSE 0
-      END AS current_user_joined
-    FROM rides r
-    LEFT JOIN users u ON r.driver_user_id = u.id
-    LEFT JOIN groups g ON g.id = r.group_id
-    WHERE r.id = ?
-  `;
-
-  db.get(sql, [req.userId ?? null, req.userId ?? null, rideId], (err: DbError, row: DbRow) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Fahrt nicht gefunden.' });
-    res.json(row);
   });
 });
 
@@ -686,21 +645,6 @@ app.delete('/rides/:id', requireAuth, (req: AuthRequest, res: Response) => {
   });
 });
 
-// --- STATS ENDPOINTS ---
-app.get('/stats/rides', (_req: Request, res: Response) => {
-  const sql = `
-    SELECT
-      COUNT(*) as totalRides,
-      COALESCE(SUM(distance_km), 0) as totalKm,
-      (COALESCE(SUM(distance_km), 0) * 0.2) as co2Saved
-    FROM rides
-  `;
-  db.get(sql, [], (err: DbError, row: DbRow) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(row);
-  });
-});
-
 app.get('/stats/me', requireAuth, (req: AuthRequest, res: Response) => {
   const userId = req.userId as number;
 
@@ -715,13 +659,16 @@ app.get('/stats/me', requireAuth, (req: AuthRequest, res: Response) => {
       SELECT r.id, r.distance_km, 'driver' AS source
       FROM rides r
       WHERE r.driver_user_id = ?
+        AND datetime(r.depart_time) <= datetime('now', 'localtime')
 
       UNION ALL
 
       SELECT r.id, r.distance_km, 'passenger' AS source
       FROM rides r
       INNER JOIN ride_passengers rp ON rp.ride_id = r.id
-      WHERE rp.user_id = ? AND rp.status = 'joined'
+      WHERE rp.user_id = ?
+        AND rp.status = 'joined'
+        AND datetime(r.depart_time) <= datetime('now', 'localtime')
     ) my_rides
   `;
 
@@ -743,15 +690,19 @@ app.get('/stats/me/weekly', requireAuth, (req: AuthRequest, res: Response) => {
       SELECT DATE(r.depart_time) AS day_key, r.distance_km
       FROM rides r
       WHERE r.driver_user_id = ?
+        AND datetime(r.depart_time) <= datetime('now', 'localtime')
 
       UNION ALL
 
       SELECT DATE(r.depart_time) AS day_key, r.distance_km
       FROM rides r
       INNER JOIN ride_passengers rp ON rp.ride_id = r.id
-      WHERE rp.user_id = ? AND rp.status = 'joined'
+      WHERE rp.user_id = ?
+        AND rp.status = 'joined'
+        AND datetime(r.depart_time) <= datetime('now', 'localtime')
     ) t
-    WHERE day_key >= DATE('now', '-6 day')
+    WHERE day_key >= DATE('now', 'localtime', '-6 day')
+      AND day_key <= DATE('now', 'localtime')
     GROUP BY day_key
     ORDER BY day_key ASC
   `;
@@ -762,64 +713,6 @@ app.get('/stats/me/weekly', requireAuth, (req: AuthRequest, res: Response) => {
       return;
     }
     res.json(rows);
-  });
-});
-
-// --- USER ENDPOINTS ---
-app.get('/users', (_req: Request, res: Response): void => {
-  db.all(`SELECT ${userSelectFields} FROM users ORDER BY id ASC`, [], (err: DbError, rows: DbRows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    res.json(rows);
-  });
-});
-
-app.post('/users', async (req: Request, res: Response): Promise<void> => {
-  // Legacy-compatible endpoint: if password exists use it, otherwise default dev password.
-  const { name, email, password } = req.body as { name?: string; email?: string; password?: string };
-  const safeName = (name ?? '').trim();
-  const safeEmail = (email ?? '').trim().toLowerCase();
-
-  if (!safeName || !safeEmail) {
-    res.status(400).json({ error: 'Name und Email sind Pflichtfelder.' });
-    return;
-  }
-
-  const rawPassword = (password ?? 'Passwort123!').trim();
-  if (rawPassword.length < 8) {
-    res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben.' });
-    return;
-  }
-
-  const hash = await bcrypt.hash(rawPassword, 10);
-
-  db.run(`INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)`, [safeName, safeEmail, hash], function (this: sqlite3.RunResult, err: DbError) {
-    if (err) {
-      if (err.message.includes('UNIQUE')) {
-        res.status(400).json({ error: 'Email existiert bereits.' });
-        return;
-      }
-      res.status(500).json({ error: err.message });
-      return;
-    }
-
-    res.status(201).json({ id: this.lastID, name: safeName, email: safeEmail });
-  });
-});
-
-app.get('/users/:id', (req: Request, res: Response) => {
-  const userId = Number(req.params.id);
-  if (!userId) {
-    res.status(400).json({ error: 'Ungültige Benutzer-ID.' });
-    return;
-  }
-
-  db.get(`SELECT ${userSelectFields} FROM users WHERE id = ?`, [userId], (err: DbError, row: DbRow) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Benutzer nicht gefunden.' });
-    res.json(row);
   });
 });
 
@@ -851,7 +744,6 @@ app.patch('/users/me', requireAuth, (req: AuthRequest, res: Response): void => {
   });
 });
 
-// --- GROUP ENDPOINTS ---
 app.get('/groups', (req: AuthRequest, res: Response): void => {
   const userId = resolveUserId(req);
   if (!userId) {

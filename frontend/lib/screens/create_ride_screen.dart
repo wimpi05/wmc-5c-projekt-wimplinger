@@ -198,7 +198,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 									},
 								),
 								const SizedBox(height: 12),
-								_buildSectionLabel(Icons.straighten_outlined, 'Kilometer (Pflichtfeld)'),
+								_buildSectionLabel(Icons.straighten_outlined, 'Kilometer'),
 								_buildTextField(
 									controller: _distanceController,
 									hint: 'z.B. 12.5',
@@ -212,7 +212,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 									},
 								),
 								const SizedBox(height: 12),
-								_buildSectionLabel(Icons.euro_outlined, 'Preis pro Platz (optional)'),
+								_buildSectionLabel(Icons.euro_outlined, 'Preis pro Platz'),
 								_buildTextField(
 									controller: _priceController,
 									hint: 'z.B. 4.50',
@@ -227,7 +227,7 @@ class _CreateRideScreenState extends State<CreateRideScreen> {
 									},
 								),
 								const SizedBox(height: 12),
-								_buildSectionLabel(Icons.notes_outlined, 'Notiz (optional)'),
+								_buildSectionLabel(Icons.notes_outlined, 'Notiz'),
 								_buildTextField(
 									controller: _noteController,
 									hint: 'Zusatzinfos für Mitfahrer',

@@ -109,47 +109,10 @@ export const initDB = () => {
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )`);
 
-    const assignExistingRidesToGroups = () => {
-      db.run(`
-        UPDATE rides
-        SET group_id = (
-          SELECT gm.group_id
-          FROM group_members gm
-          WHERE gm.user_id = rides.driver_user_id
-          ORDER BY CASE WHEN gm.role = 'admin' THEN 0 ELSE 1 END, gm.group_id ASC
-          LIMIT 1
-        )
-        WHERE group_id IS NULL
-      `);
-    };
-
-    db.all(`PRAGMA table_info(users)`, (pragmaErr, columns: any[]) => {
-      if (pragmaErr) return;
-      const columnNames = columns.map((c) => c.name);
-
-      if (!columnNames.includes('password_hash')) {
-        db.run(`ALTER TABLE users ADD COLUMN password_hash TEXT`);
-      }
-      if (!columnNames.includes('is_active')) {
-        db.run(`ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1`);
-      }
-
-      db.run(
-        `UPDATE users SET password_hash = ? WHERE password_hash IS NULL OR password_hash = ''`,
-        [seededPasswordHash],
-      );
-    });
-
-    db.all(`PRAGMA table_info(rides)`, (pragmaErr, columns: any[]) => {
-      if (pragmaErr) return;
-      const columnNames = columns.map((c) => c.name);
-
-      if (!columnNames.includes('group_id')) {
-        db.run(`ALTER TABLE rides ADD COLUMN group_id INTEGER`);
-      }
-
-      assignExistingRidesToGroups();
-    });
+    db.run(
+      `UPDATE users SET password_hash = ? WHERE password_hash IS NULL OR password_hash = ''`,
+      [seededPasswordHash],
+    );
 
     const ensureGroupsAndRides = () => {
       db.get(`SELECT COUNT(*) as count FROM groups`, (groupErr, groupRow: any) => {
@@ -161,7 +124,6 @@ export const initDB = () => {
           if (!rideErr && rideRow.count === 0) {
             setTimeout(() => {
               seedDefaultRides();
-              assignExistingRidesToGroups();
             }, 150);
           }
         });

@@ -159,57 +159,6 @@ class ApiService {
   }
 
   // ------------------------
-  // User Endpoints
-  // ------------------------
-
-  Future<List<User>> getUsers() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/users'));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => User.fromJson(json)).toList();
-      }
-      throw Exception('Failed to load users: ${response.statusCode}');
-    } catch (e) {
-      throw Exception('Error fetching users: $e');
-    }
-  }
-
-  Future<User> getUserById(int userId) async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/users/$userId'));
-
-      if (response.statusCode == 200) {
-        return User.fromJson(json.decode(response.body));
-      }
-      throw Exception('Failed to load user: ${response.statusCode}');
-    } catch (e) {
-      throw Exception('Error fetching user: $e');
-    }
-  }
-
-  Future<User> createUser({
-    required String name,
-    required String email,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/users'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'name': name, 'email': email}),
-      );
-
-      if (response.statusCode == 201) {
-        return User.fromJson(json.decode(response.body));
-      }
-      throw Exception('Failed to create user: ${response.body}');
-    } catch (e) {
-      throw Exception('Error creating user: $e');
-    }
-  }
-
-  // ------------------------
   // Ride Endpoints
   // ------------------------
 
@@ -227,22 +176,6 @@ class ApiService {
       throw Exception('Failed to load rides: ${response.statusCode}');
     } catch (e) {
       throw Exception('Error fetching rides: $e');
-    }
-  }
-
-  Future<Ride> getRideById(int rideId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/rides/$rideId'),
-        headers: _headers(withAuth: true),
-      );
-
-      if (response.statusCode == 200) {
-        return Ride.fromJson(json.decode(response.body));
-      }
-      throw Exception('Failed to load ride: ${response.statusCode}');
-    } catch (e) {
-      throw Exception('Error fetching ride: $e');
     }
   }
 
@@ -341,19 +274,6 @@ class ApiService {
   // ------------------------
   // Statistics Endpoints
   // ------------------------
-
-  Future<Map<String, dynamic>> getRideStats() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/stats/rides'));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      throw Exception('Failed to load ride stats: ${response.statusCode}');
-    } catch (e) {
-      throw Exception('Error fetching ride stats: $e');
-    }
-  }
 
   Future<Map<String, dynamic>> getMyRideStats() async {
     final response = await http.get(

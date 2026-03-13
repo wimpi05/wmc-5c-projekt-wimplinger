@@ -71,6 +71,51 @@ class RideCard extends StatelessWidget {
                 color: scheme.onSurface,
               ),
             ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildMetaChip(
+                  icon: Icons.route_outlined,
+                  text: ride.distanceKm != null
+                      ? '${ride.distanceKm!.toStringAsFixed(1)} km'
+                      : 'Keine Distanz',
+                  scheme: scheme,
+                ),
+                _buildMetaChip(
+                  icon: Icons.euro_outlined,
+                  text: ride.pricePerSeat != null
+                      ? '${ride.pricePerSeat!.toStringAsFixed(2)} EUR / Platz'
+                      : 'Kostenlos',
+                  scheme: scheme,
+                ),
+              ],
+            ),
+            if ((ride.note ?? '').trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.sticky_note_2_outlined, size: 16, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ride.note!.trim(),
+                        style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
             _buildActionButtons(isDriver, scheme),
@@ -136,6 +181,31 @@ class RideCard extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildMetaChip({
+    required IconData icon,
+    required String text,
+    required ColorScheme scheme,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
     );
   }
 
